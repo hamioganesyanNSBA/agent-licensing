@@ -7,8 +7,12 @@ export default function Appointments() {
   const [state, setState] = useState('')
   const [year, setYear] = useState(2026)
   const [rts, setRts] = useState('')
+  const [name, setName] = useState('')
 
-  useEffect(() => { load() }, [carrier, state, year, rts])
+  useEffect(() => {
+    const t = setTimeout(load, 250)
+    return () => clearTimeout(t)
+  }, [carrier, state, year, rts, name])
 
   async function load() {
     let q = supabase.from('carrier_appointments')
@@ -19,6 +23,10 @@ export default function Appointments() {
     if (state)   q = q.eq('state', state)
     if (year)    q = q.eq('plan_year', year)
     if (rts)     q = q.eq('rts_status', rts)
+    if (name) {
+      const term = `%${name}%`
+      q = q.or(`first_name.ilike.${term},last_name.ilike.${term}`)
+    }
     const { data } = await q
     setRows(data || [])
   }
@@ -44,6 +52,7 @@ export default function Appointments() {
             <option value={2025}>2025</option>
             <option value={2026}>2026</option>
           </select>
+          <input placeholder="Agent name" value={name} onChange={e => setName(e.target.value)} style={{ width: 180 }} />
           <select value={rts} onChange={e => setRts(e.target.value)}>
             <option value="">All RTS</option>
             <option value="Y">Ready (Y)</option>
