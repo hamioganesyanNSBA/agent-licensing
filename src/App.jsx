@@ -38,7 +38,10 @@ export default function App() {
         <AdminGate>
           <div className="layout">
             <aside className="sidebar">
-              <h1>NSBA Licensing</h1>
+              <div className="brand">
+                <img src="/nsba-logo.png" alt="NSBA" />
+                <h1>Licensing</h1>
+              </div>
               <nav>
                 <NavLink to="/" end>Dashboard</NavLink>
                 <NavLink to="/agents">Agents</NavLink>
