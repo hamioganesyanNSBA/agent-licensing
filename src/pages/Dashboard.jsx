@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
+import { TIER_1, TIER_2, ALL_REQUIRED } from '../lib/tiers.js'
+import USMap from '../components/USMap.jsx'
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null)
   const [expiring, setExpiring] = useState([])
+  const [gaps, setGaps] = useState([])
 
   useEffect(() => { load() }, [])
 
@@ -11,7 +14,7 @@ export default function Dashboard() {
     const today = new Date().toISOString().slice(0, 10)
     const in60 = new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10)
 
-    const [agents, lic, appt, exp] = await Promise.all([
+    const [agents, lic, appt, exp, allAgents, allLics] = await Promise.all([
       supabase.from('agents').select('npn', { count: 'exact', head: true }),
       supabase.from('licenses').select('id', { count: 'exact', head: true }).eq('status', 'Active'),
       supabase.from('carrier_appointments').select('id', { count: 'exact', head: true }).eq('rts_status', 'Y'),
@@ -22,6 +25,8 @@ export default function Dashboard() {
         .lte('expiration_date', in60)
         .order('expiration_date', { ascending: true })
         .limit(50),
+      supabase.from('agents').select('npn,first_name,last_name').order('last_name'),
+      supabase.from('licenses').select('npn,state,status').eq('status', 'Active'),
     ])
 
     setStats({
@@ -31,6 +36,31 @@ export default function Dashboard() {
       expiringSoon: exp.data?.length ?? 0,
     })
     setExpiring(exp.data || [])
+
+    // Build compliance gaps
+    const licByAgent = {}
+    for (const l of (allLics.data || [])) {
+      if (!licByAgent[l.npn]) licByAgent[l.npn] = new Set()
+      licByAgent[l.npn].add(l.state)
+    }
+
+    const agentGaps = []
+    for (const a of (allAgents.data || [])) {
+      const have = licByAgent[a.npn] || new Set()
+      const missingT1 = TIER_1.filter(s => !have.has(s))
+      const missingT2 = TIER_2.filter(s => !have.has(s))
+      if (missingT1.length || missingT2.length) {
+        agentGaps.push({
+          npn: a.npn,
+          name: `${a.last_name}, ${a.first_name}`,
+          missingT1,
+          missingT2,
+          total: missingT1.length + missingT2.length,
+        })
+      }
+    }
+    agentGaps.sort((a, b) => b.total - a.total)
+    setGaps(agentGaps)
   }
 
   if (!stats) return <div>Loading…</div>
@@ -42,6 +72,44 @@ export default function Dashboard() {
         <Stat label="Active license rows" value={stats.activeLics} />
         <Stat label="RTS-ready appointments" value={stats.readyAppts} />
         <Stat label="Expiring in 60 days" value={stats.expiringSoon} />
+      </div>
+
+      <div style={{ marginTop: 24 }}>
+        <USMap />
+      </div>
+
+      <div className="card" style={{ marginTop: 24 }}>
+        <h2>Missing Required Licenses ({gaps.length} agents)</h2>
+        {gaps.length === 0 ? <p>All agents have required licenses.</p> : (
+          <table>
+            <thead>
+              <tr>
+                <th>Agent</th>
+                <th>NPN</th>
+                <th>Missing Tier 1 (Onboarding)</th>
+                <th>Missing Tier 2 (Metrics)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {gaps.map((g, i) => (
+                <tr key={i}>
+                  <td>{g.name}</td>
+                  <td>{g.npn}</td>
+                  <td>
+                    {g.missingT1.length === 0
+                      ? <span className="badge badge-y">All set</span>
+                      : g.missingT1.map(s => <span key={s} className="badge badge-n" style={{ marginRight: 4 }}>{s}</span>)}
+                  </td>
+                  <td>
+                    {g.missingT2.length === 0
+                      ? <span className="badge badge-y">All set</span>
+                      : g.missingT2.map(s => <span key={s} className="badge badge-warn" style={{ marginRight: 4 }}>{s}</span>)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       <div className="card" style={{ marginTop: 24 }}>
