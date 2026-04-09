@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { TIER_1, TIER_2, ALL_REQUIRED } from '../lib/tiers.js'
+import { toStateCode } from '../lib/states.js'
 import USMap from '../components/USMap.jsx'
 
 export default function Dashboard() {
@@ -37,11 +38,12 @@ export default function Dashboard() {
     })
     setExpiring(exp.data || [])
 
-    // Build compliance gaps
+    // Build compliance gaps — normalize state names to 2-letter codes
     const licByAgent = {}
     for (const l of (allLics.data || [])) {
       if (!licByAgent[l.npn]) licByAgent[l.npn] = new Set()
-      licByAgent[l.npn].add(l.state)
+      const code = toStateCode(l.state)
+      if (code) licByAgent[l.npn].add(code)
     }
 
     const agentGaps = []
