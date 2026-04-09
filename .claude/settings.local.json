@@ -3,7 +3,23 @@
     "allow": [
       "Bash(vercel --version)",
       "Bash(vercel whoami:*)",
-      "Bash(gh auth:*)"
+      "Bash(gh auth:*)",
+      "Bash(curl -sL --max-time 15 \"https://raw.githubusercontent.com/jgoodall/us-maps/master/svg/states.svg\")",
+      "Bash(curl -sL --max-time 15 \"https://simplemaps.com/static/svg/us/us.svg\")",
+      "Bash(curl -sL --max-time 15 \"https://upload.wikimedia.org/wikipedia/commons/3/32/Blank_US_Map_%28states_only%29.svg\")",
+      "WebSearch",
+      "Bash(curl -sL --max-time 15 \"https://raw.githubusercontent.com/cphalpert/census-regions/master/us-state-boundaries.svg\")",
+      "Bash(curl -sL --max-time 15 \"https://raw.githubusercontent.com/cieloazul310/us-state-map/main/src/data/states.svg\")",
+      "WebFetch(domain:gist.github.com)",
+      "Bash(curl -sL --max-time 15 \"https://raw.githubusercontent.com/robflaherty/us-map-raphael/master/us-map.js\")",
+      "Bash(curl -sL --max-time 15 \"https://gist.githubusercontent.com/climyao/3077873/raw/57ca6b49b8e5333c13f022ab0adbe0feb405ec86/blank_us_map.svg\")",
+      "Bash(curl -sL --max-time 15 \"https://raw.githubusercontent.com/robflaherty/us-map-raphael/refs/heads/master/us-map.js\")",
+      "Bash(curl -sL --max-time 15 \"https://raw.githubusercontent.com/robflaherty/us-map-raphael/refs/heads/gh-pages/us-map.js\")",
+      "Bash(curl -sL \"https://gist.githubusercontent.com/climyao/3077873/raw/57ca6b49b8e5333c13f022ab0adbe0feb405ec86/blank_us_map.svg\" -o /tmp/us_states.svg)",
+      "Read(//tmp/**)",
+      "Bash(node:*)",
+      "Bash(mv us-states-paths.ts src/lib/usStatePaths.js)",
+      "Bash(rm us_states_map.svg)"
     ]
   }
 }
