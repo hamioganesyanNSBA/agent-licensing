@@ -15,7 +15,7 @@ export default function Dashboard() {
     const today = new Date().toISOString().slice(0, 10)
     const in60 = new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10)
 
-    const [agents, lic, appt, exp, allAgents, allLics] = await Promise.all([
+    const [agents, lic, appt, exp, allLics] = await Promise.all([
       supabase.from('agents').select('npn', { count: 'exact', head: true }),
       supabase.from('licenses').select('id', { count: 'exact', head: true }).eq('status', 'Active'),
       supabase.from('carrier_appointments').select('id', { count: 'exact', head: true }).eq('rts_status', 'Y'),
@@ -26,8 +26,7 @@ export default function Dashboard() {
         .lte('expiration_date', in60)
         .order('expiration_date', { ascending: true })
         .limit(50),
-      supabase.from('agents').select('npn,first_name,last_name').order('last_name'),
-      supabase.from('licenses').select('npn,state,status').eq('status', 'Active'),
+      supabase.from('licenses').select('npn,licensee_name,state,status').eq('status', 'Active').limit(10000),
     ])
 
     setStats({
@@ -38,23 +37,25 @@ export default function Dashboard() {
     })
     setExpiring(exp.data || [])
 
-    // Build compliance gaps — normalize state names to 2-letter codes
+    // Build compliance gaps from license data only (not carrier appointments).
+    // Derive agent list from licenses so we only check agents in the license report.
     const licByAgent = {}
+    const agentNames = {}
     for (const l of (allLics.data || [])) {
       if (!licByAgent[l.npn]) licByAgent[l.npn] = new Set()
       const code = toStateCode(l.state)
       if (code) licByAgent[l.npn].add(code)
+      if (!agentNames[l.npn]) agentNames[l.npn] = l.licensee_name
     }
 
     const agentGaps = []
-    for (const a of (allAgents.data || [])) {
-      const have = licByAgent[a.npn] || new Set()
+    for (const [npn, have] of Object.entries(licByAgent)) {
       const missingT1 = TIER_1.filter(s => !have.has(s))
       const missingT2 = TIER_2.filter(s => !have.has(s))
       if (missingT1.length || missingT2.length) {
         agentGaps.push({
-          npn: a.npn,
-          name: `${a.last_name}, ${a.first_name}`,
+          npn,
+          name: agentNames[npn] || npn,
           missingT1,
           missingT2,
           total: missingT1.length + missingT2.length,
