@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
-import { TIER_1, TIER_2, ALL_REQUIRED } from '../lib/tiers.js'
+import { fetchAll } from '../lib/fetchAll.js'
+import { TIER_1, TIER_2 } from '../lib/tiers.js'
 import { toStateCode } from '../lib/states.js'
 import USMap from '../components/USMap.jsx'
 import Pagination from '../components/Pagination.jsx'
@@ -22,12 +23,9 @@ export default function Dashboard() {
     const today = new Date().toISOString().slice(0, 10)
     const in60 = new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10)
 
-    const allLicsRes = await supabase
-      .from('licenses')
-      .select('npn,licensee_name,state,status,expiration_date,loa')
-      .limit(10000)
+    // Fetch ALL license rows (paginated past 1000-row cap)
+    const allLics = await fetchAll('licenses', 'npn,licensee_name,state,status,expiration_date,loa')
 
-    const allLics = allLicsRes.data || []
     const licensedNpns = new Set(allLics.map(l => l.npn))
     const npnList = [...licensedNpns]
 
