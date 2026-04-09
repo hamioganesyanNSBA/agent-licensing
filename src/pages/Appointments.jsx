@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
+import { useLicensedNpns } from '../lib/useLicensedNpns.js'
 
 export default function Appointments() {
   const [rows, setRows] = useState([])
@@ -8,17 +9,19 @@ export default function Appointments() {
   const [year, setYear] = useState(2026)
   const [rts, setRts] = useState('')
   const [name, setName] = useState('')
+  const licensedNpns = useLicensedNpns()
 
   useEffect(() => {
+    if (!licensedNpns) return
     const t = setTimeout(load, 250)
     return () => clearTimeout(t)
-  }, [carrier, state, year, rts, name])
+  }, [carrier, state, year, rts, name, licensedNpns])
 
   async function load() {
     let q = supabase.from('carrier_appointments')
       .select('agent_npn,first_name,last_name,carrier,plan_year,state,product_category,rts_status')
       .order('last_name')
-      .limit(2000)
+      .limit(5000)
     if (carrier) q = q.eq('carrier', carrier)
     if (state)   q = q.eq('state', state)
     if (year)    q = q.eq('plan_year', year)
@@ -27,6 +30,8 @@ export default function Appointments() {
       const term = `%${name}%`
       q = q.or(`first_name.ilike.${term},last_name.ilike.${term}`)
     }
+    // Filter to only agents that exist in the license report
+    q = q.in('agent_npn', [...licensedNpns])
     const { data } = await q
     setRows(data || [])
   }

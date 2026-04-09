@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
+import { useLicensedNpns } from '../lib/useLicensedNpns.js'
 
 export default function Agents() {
   const [agents, setAgents] = useState([])
   const [q, setQ] = useState('')
+  const licensedNpns = useLicensedNpns()
 
   useEffect(() => { load() }, [])
 
@@ -18,6 +20,7 @@ export default function Agents() {
   }
 
   const filtered = agents.filter(a => {
+    if (!licensedNpns || !licensedNpns.has(a.npn)) return false
     if (!q) return true
     const s = q.toLowerCase()
     return (a.first_name || '').toLowerCase().includes(s)
@@ -31,7 +34,7 @@ export default function Agents() {
       <h1>Agents</h1>
       <div className="card">
         <input placeholder="Search by name, email, or NPN…" value={q} onChange={e => setQ(e.target.value)} style={{ width: 320 }} />
-        <p style={{ color: '#64748b', fontSize: 13, marginTop: 8 }}>{filtered.length} of {agents.length}</p>
+        <p style={{ color: '#64748b', fontSize: 13, marginTop: 8 }}>{filtered.length} agents</p>
         <table>
           <thead><tr><th>Name</th><th>NPN</th><th>Email</th></tr></thead>
           <tbody>

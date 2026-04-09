@@ -15,33 +15,48 @@ export default function Dashboard() {
     const today = new Date().toISOString().slice(0, 10)
     const in60 = new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10)
 
-    const [agents, lic, appt, exp, allLics] = await Promise.all([
-      supabase.from('agents').select('npn', { count: 'exact', head: true }),
-      supabase.from('licenses').select('id', { count: 'exact', head: true }).eq('status', 'Active'),
-      supabase.from('carrier_appointments').select('id', { count: 'exact', head: true }).eq('rts_status', 'Y'),
+    // Fetch all license rows first — this is the source of truth for who is an agent
+    const allLicsRes = await supabase
+      .from('licenses')
+      .select('npn,licensee_name,state,status,expiration_date,loa')
+      .limit(10000)
+
+    const allLics = allLicsRes.data || []
+
+    // Build licensed NPN set
+    const licensedNpns = new Set(allLics.map(l => l.npn))
+    const npnList = [...licensedNpns]
+
+    // Now fetch stats scoped to licensed agents
+    const [appt, lic] = await Promise.all([
+      supabase.from('carrier_appointments')
+        .select('id', { count: 'exact', head: true })
+        .eq('rts_status', 'Y')
+        .in('agent_npn', npnList),
       supabase.from('licenses')
-        .select('npn,licensee_name,state,expiration_date,loa,status')
-        .eq('status', 'Active')
-        .gte('expiration_date', today)
-        .lte('expiration_date', in60)
-        .order('expiration_date', { ascending: true })
-        .limit(50),
-      supabase.from('licenses').select('npn,licensee_name,state,status').eq('status', 'Active').limit(10000),
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'Active'),
     ])
 
-    setStats({
-      agents:       agents.count    ?? 0,
-      activeLics:   lic.count       ?? 0,
-      readyAppts:   appt.count      ?? 0,
-      expiringSoon: exp.data?.length ?? 0,
-    })
-    setExpiring(exp.data || [])
+    // Expiring licenses in next 60 days
+    const expiring = allLics.filter(l =>
+      l.status === 'Active' && l.expiration_date &&
+      l.expiration_date >= today && l.expiration_date <= in60
+    ).sort((a, b) => a.expiration_date.localeCompare(b.expiration_date)).slice(0, 50)
 
-    // Build compliance gaps from license data only (not carrier appointments).
-    // Derive agent list from licenses so we only check agents in the license report.
+    setStats({
+      agents:       licensedNpns.size,
+      activeLics:   lic.count ?? 0,
+      readyAppts:   appt.count ?? 0,
+      expiringSoon: expiring.length,
+    })
+    setExpiring(expiring)
+
+    // Build compliance gaps — only for agents in the license report
     const licByAgent = {}
     const agentNames = {}
-    for (const l of (allLics.data || [])) {
+    for (const l of allLics) {
+      if (l.status !== 'Active') continue
       if (!licByAgent[l.npn]) licByAgent[l.npn] = new Set()
       const code = toStateCode(l.state)
       if (code) licByAgent[l.npn].add(code)
