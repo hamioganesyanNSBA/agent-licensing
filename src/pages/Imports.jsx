@@ -10,6 +10,7 @@ export default function Imports() {
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState(null)
   const [error, setError] = useState('')
+  const [clearing, setClearing] = useState(false)
 
   const importer = IMPORTERS[importerKey]
 
@@ -19,7 +20,6 @@ export default function Imports() {
     try {
       const parsed = await importer.parseFile(file)
 
-      // Upsert agents (if importer returned them).
       if (parsed.agents?.length) {
         const chunks = chunk(parsed.agents, 500)
         for (const c of chunks) {
@@ -28,7 +28,6 @@ export default function Imports() {
         }
       }
 
-      // Upsert licenses.
       if (parsed.licenses?.length) {
         const chunks = chunk(parsed.licenses, 500)
         for (const c of chunks) {
@@ -39,7 +38,6 @@ export default function Imports() {
         }
       }
 
-      // Upsert appointments. Also upsert any agents we learned about.
       if (parsed.appointments?.length) {
         const agentMap = new Map()
         for (const a of parsed.appointments) {
@@ -89,6 +87,25 @@ export default function Imports() {
     }
   }
 
+  async function clearAll() {
+    if (!window.confirm('This will delete ALL data from every table (licenses, appointments, agents, import history). Are you sure?')) return
+    setClearing(true); setError('')
+    try {
+      // Delete in order respecting any potential FK relationships
+      await supabase.from('carrier_appointments').delete().gte('id', 0)
+      await supabase.from('licenses').delete().gte('id', 0)
+      await supabase.from('import_runs').delete().gte('id', 0)
+      await supabase.from('agents').delete().neq('npn', '')
+      setResult(null)
+      alert('All data cleared. You can now re-import your files.')
+    } catch (e) {
+      console.error(e)
+      setError(e.message || String(e))
+    } finally {
+      setClearing(false)
+    }
+  }
+
   return (
     <>
       <h1>Imports</h1>
@@ -113,6 +130,14 @@ export default function Imports() {
             Imported — agents: {result.agents}, licenses: {result.licenses}, appointments: {result.appointments}
           </div>
         )}
+      </div>
+
+      <div className="card" style={{ marginTop: 24 }}>
+        <h2>Clear All Data</h2>
+        <p style={{ color: '#64748b', fontSize: 13 }}>Delete all records from every table so you can start fresh. This cannot be undone.</p>
+        <button className="btn btn-danger" disabled={clearing} onClick={clearAll}>
+          {clearing ? 'Clearing…' : 'Clear All Data'}
+        </button>
       </div>
     </>
   )

@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { useLicensedNpns } from '../lib/useLicensedNpns.js'
+import Pagination from '../components/Pagination.jsx'
+
+const PER_PAGE = 20
 
 export default function Appointments() {
   const [rows, setRows] = useState([])
@@ -9,6 +12,7 @@ export default function Appointments() {
   const [year, setYear] = useState(2026)
   const [rts, setRts] = useState('')
   const [name, setName] = useState('')
+  const [page, setPage] = useState(1)
   const licensedNpns = useLicensedNpns()
 
   useEffect(() => {
@@ -16,6 +20,8 @@ export default function Appointments() {
     const t = setTimeout(load, 250)
     return () => clearTimeout(t)
   }, [carrier, state, year, rts, name, licensedNpns])
+
+  useEffect(() => { setPage(1) }, [carrier, state, year, rts, name])
 
   async function load() {
     let q = supabase.from('carrier_appointments')
@@ -30,11 +36,12 @@ export default function Appointments() {
       const term = `%${name}%`
       q = q.or(`first_name.ilike.${term},last_name.ilike.${term}`)
     }
-    // Filter to only agents that exist in the license report
     q = q.in('agent_npn', [...licensedNpns])
     const { data } = await q
     setRows(data || [])
   }
+
+  const slice = rows.slice((page - 1) * PER_PAGE, page * PER_PAGE)
 
   return (
     <>
@@ -68,7 +75,7 @@ export default function Appointments() {
         <table>
           <thead><tr><th>Agent</th><th>NPN</th><th>Carrier</th><th>Year</th><th>State</th><th>Product</th><th>RTS</th></tr></thead>
           <tbody>
-            {rows.map((r, i) => (
+            {slice.map((r, i) => (
               <tr key={i}>
                 <td>{r.last_name}, {r.first_name}</td>
                 <td>{r.agent_npn}</td>
@@ -81,6 +88,7 @@ export default function Appointments() {
             ))}
           </tbody>
         </table>
+        <Pagination page={page} total={rows.length} perPage={PER_PAGE} onChange={setPage} />
       </div>
     </>
   )

@@ -2,20 +2,25 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { useLicensedNpns } from '../lib/useLicensedNpns.js'
+import Pagination from '../components/Pagination.jsx'
+
+const PER_PAGE = 20
 
 export default function Agents() {
   const [agents, setAgents] = useState([])
   const [q, setQ] = useState('')
+  const [page, setPage] = useState(1)
   const licensedNpns = useLicensedNpns()
 
   useEffect(() => { load() }, [])
+  useEffect(() => { setPage(1) }, [q])
 
   async function load() {
     const { data } = await supabase
       .from('agents')
       .select('npn,first_name,last_name,email')
       .order('last_name', { ascending: true })
-      .limit(1000)
+      .limit(5000)
     setAgents(data || [])
   }
 
@@ -29,6 +34,8 @@ export default function Agents() {
         || (a.npn        || '').includes(s)
   })
 
+  const slice = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+
   return (
     <>
       <h1>Agents</h1>
@@ -38,7 +45,7 @@ export default function Agents() {
         <table>
           <thead><tr><th>Name</th><th>NPN</th><th>Email</th></tr></thead>
           <tbody>
-            {filtered.map(a => (
+            {slice.map(a => (
               <tr key={a.npn}>
                 <td><Link to={`/agents/${a.npn}`}>{a.last_name}, {a.first_name}</Link></td>
                 <td>{a.npn}</td>
@@ -47,6 +54,7 @@ export default function Agents() {
             ))}
           </tbody>
         </table>
+        <Pagination page={page} total={filtered.length} perPage={PER_PAGE} onChange={setPage} />
       </div>
     </>
   )
