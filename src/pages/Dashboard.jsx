@@ -21,7 +21,9 @@ export default function Dashboard() {
 
   async function load() {
     const today = new Date().toISOString().slice(0, 10)
+    const in30 = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
     const in60 = new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10)
+    const in90 = new Date(Date.now() + 90 * 86400000).toISOString().slice(0, 10)
 
     // Fetch ALL license rows (paginated past 1000-row cap)
     const allLics = await fetchAll('licenses', 'npn,licensee_name,state,status,expiration_date,loa')
@@ -44,11 +46,22 @@ export default function Dashboard() {
       l.expiration_date >= today && l.expiration_date <= in60
     ).sort((a, b) => a.expiration_date.localeCompare(b.expiration_date))
 
+    const exp30 = allLics.filter(l =>
+      l.status === 'Active' && l.expiration_date &&
+      l.expiration_date >= today && l.expiration_date <= in30
+    ).length
+    const exp60 = expiringAll.length
+    const exp90 = allLics.filter(l =>
+      l.status === 'Active' && l.expiration_date &&
+      l.expiration_date >= today && l.expiration_date <= in90
+    ).length
+
     setStats({
       agents:       licensedNpns.size,
       activeLics:   lic.count ?? 0,
       readyAppts:   appt.count ?? 0,
       expiringSoon: expiringAll.length,
+      exp30, exp60, exp90,
     })
     setExpiring(expiringAll)
 
@@ -94,6 +107,12 @@ export default function Dashboard() {
         <Stat label="Active license rows" value={stats.activeLics} />
         <Stat label="RTS-ready appointments" value={stats.readyAppts} />
         <Stat label="Expiring in 60 days" value={stats.expiringSoon} />
+      </div>
+
+      <div className="grid grid-3" style={{ marginTop: 16 }}>
+        <Stat label="Licenses expiring in 30 days or less" value={stats.exp30} />
+        <Stat label="Licenses expiring in 60 days or less" value={stats.exp60} />
+        <Stat label="Licenses expiring in 90 days or less" value={stats.exp90} />
       </div>
 
       <div style={{ marginTop: 24 }}>
