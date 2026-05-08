@@ -111,7 +111,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-3" style={{ marginTop: 16 }}>
-        <Stat label="Licenses expiring in 30 days or less" value={stats.exp30} to="/licenses?expiring=30&status=Active" />
+        <Stat label="Licenses expiring in 30 days or less" value={stats.exp30} to="/licenses?expiring=30&status=Active" urgent />
         <Stat label="Licenses expiring in 60 days or less" value={stats.exp60} to="/licenses?expiring=60&status=Active" />
         <Stat label="Licenses expiring in 90 days or less" value={stats.exp90} to="/licenses?expiring=90&status=Active" />
       </div>
@@ -187,7 +187,57 @@ export default function Dashboard() {
   )
 }
 
-function Stat({ label, value, to }) {
+function Stat({ label, value, to, urgent }) {
+  if (urgent) {
+    const hasAny = Number(value) > 0
+    return (
+      <div
+        className="card"
+        style={{
+          background: hasAny ? '#fff1f2' : '#fff',
+          border: `2px solid ${hasAny ? 'var(--nsba-red)' : '#e5e7eb'}`,
+          boxShadow: hasAny ? '0 0 0 4px rgba(215,35,40,0.12)' : undefined,
+          position: 'relative',
+        }}
+      >
+        {hasAny && (
+          <span
+            style={{
+              position: 'absolute',
+              top: 10,
+              right: 12,
+              background: 'var(--nsba-red)',
+              color: '#fff',
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: 1,
+              padding: '2px 8px',
+              borderRadius: 999,
+              animation: 'urgentPulse 1.6s ease-in-out infinite',
+            }}
+          >
+            URGENT
+          </span>
+        )}
+        <div
+          className="stat-label"
+          style={{ color: hasAny ? 'var(--nsba-red)' : undefined, fontWeight: 700 }}
+        >
+          ⚠ {label}
+        </div>
+        <div
+          className="stat"
+          style={{
+            fontSize: 40,
+            fontWeight: 800,
+            color: hasAny ? 'var(--nsba-red)' : 'var(--nsba-navy)',
+          }}
+        >
+          {to ? <Link to={to} style={{ color: 'inherit', textDecoration: 'underline' }}>{value}</Link> : value}
+        </div>
+      </div>
+    )
+  }
   return (
     <div className="card">
       <div className="stat-label">{label}</div>
