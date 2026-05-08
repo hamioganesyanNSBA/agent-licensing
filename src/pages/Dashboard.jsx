@@ -111,9 +111,9 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-3" style={{ marginTop: 16 }}>
-        <Stat label="Licenses expiring in 30 days or less" value={stats.exp30} to="/licenses?expiring=30&status=Active" urgent />
-        <Stat label="Licenses expiring in 60 days or less" value={stats.exp60} to="/licenses?expiring=60&status=Active" />
-        <Stat label="Licenses expiring in 90 days or less" value={stats.exp90} to="/licenses?expiring=90&status=Active" />
+        <Stat label="Licenses expiring in 30 days or less" value={stats.exp30} to="/licenses?expiring=30&status=Active" tone="urgent" />
+        <Stat label="Licenses expiring in 60 days or less" value={stats.exp60} to="/licenses?expiring=60&status=Active" tone="warning" />
+        <Stat label="Licenses expiring in 90 days or less" value={stats.exp90} to="/licenses?expiring=90&status=Active" tone="ok" />
       </div>
 
       <div style={{ marginTop: 24 }}>
@@ -187,16 +187,23 @@ export default function Dashboard() {
   )
 }
 
-function Stat({ label, value, to, urgent }) {
-  if (urgent) {
+const TONES = {
+  urgent:  { color: '#b91c1c', bg: '#fff1f2', ring: 'rgba(185,28,28,0.12)', tag: 'URGENT', icon: '⚠' },
+  warning: { color: '#a16207', bg: '#fefce8', ring: 'rgba(161,98,7,0.12)',  tag: 'SOON',   icon: '⚠' },
+  ok:      { color: '#15803d', bg: '#f0fdf4', ring: 'rgba(21,128,61,0.12)', tag: 'WATCH',  icon: '•' },
+}
+
+function Stat({ label, value, to, tone }) {
+  if (tone && TONES[tone]) {
+    const t = TONES[tone]
     const hasAny = Number(value) > 0
     return (
       <div
         className="card"
         style={{
-          background: hasAny ? '#fff1f2' : '#fff',
-          border: `2px solid ${hasAny ? 'var(--nsba-red)' : '#e5e7eb'}`,
-          boxShadow: hasAny ? '0 0 0 4px rgba(215,35,40,0.12)' : undefined,
+          background: hasAny ? t.bg : '#fff',
+          border: `2px solid ${hasAny ? t.color : '#e5e7eb'}`,
+          boxShadow: hasAny ? `0 0 0 4px ${t.ring}` : undefined,
           position: 'relative',
         }}
       >
@@ -206,31 +213,31 @@ function Stat({ label, value, to, urgent }) {
               position: 'absolute',
               top: 10,
               right: 12,
-              background: 'var(--nsba-red)',
+              background: t.color,
               color: '#fff',
               fontSize: 10,
               fontWeight: 700,
               letterSpacing: 1,
               padding: '2px 8px',
               borderRadius: 999,
-              animation: 'urgentPulse 1.6s ease-in-out infinite',
+              animation: tone === 'urgent' ? 'urgentPulse 1.6s ease-in-out infinite' : undefined,
             }}
           >
-            URGENT
+            {t.tag}
           </span>
         )}
         <div
           className="stat-label"
-          style={{ color: hasAny ? 'var(--nsba-red)' : undefined, fontWeight: 700 }}
+          style={{ color: hasAny ? t.color : undefined, fontWeight: 700 }}
         >
-          ⚠ {label}
+          {t.icon} {label}
         </div>
         <div
           className="stat"
           style={{
-            fontSize: 40,
-            fontWeight: 800,
-            color: hasAny ? 'var(--nsba-red)' : 'var(--nsba-navy)',
+            fontSize: tone === 'urgent' ? 40 : 32,
+            fontWeight: tone === 'urgent' ? 800 : 700,
+            color: hasAny ? t.color : 'var(--nsba-navy)',
           }}
         >
           {to ? <Link to={to} style={{ color: 'inherit', textDecoration: 'underline' }}>{value}</Link> : value}
