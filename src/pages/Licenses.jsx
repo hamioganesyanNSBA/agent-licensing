@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import Pagination from '../components/Pagination.jsx'
 
 const PER_PAGE = 20
 
 export default function Licenses() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [rows, setRows] = useState([])
-  const [state, setState] = useState('')
-  const [status, setStatus] = useState('Active')
-  const [expiringDays, setExpiringDays] = useState('')
+  const [state, setState] = useState(searchParams.get('state') || '')
+  const [status, setStatus] = useState(searchParams.get('status') ?? 'Active')
+  const [expiringDays, setExpiringDays] = useState(searchParams.get('expiring') || '')
   const [page, setPage] = useState(1)
 
   useEffect(() => { load() }, [state, status, expiringDays])

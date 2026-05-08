@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { fetchAll } from '../lib/fetchAll.js'
 import { TIER_1, TIER_2 } from '../lib/tiers.js'
@@ -110,9 +111,9 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-3" style={{ marginTop: 16 }}>
-        <Stat label="Licenses expiring in 30 days or less" value={stats.exp30} />
-        <Stat label="Licenses expiring in 60 days or less" value={stats.exp60} />
-        <Stat label="Licenses expiring in 90 days or less" value={stats.exp90} />
+        <Stat label="Licenses expiring in 30 days or less" value={stats.exp30} to="/licenses?expiring=30&status=Active" />
+        <Stat label="Licenses expiring in 60 days or less" value={stats.exp60} to="/licenses?expiring=60&status=Active" />
+        <Stat label="Licenses expiring in 90 days or less" value={stats.exp90} to="/licenses?expiring=90&status=Active" />
       </div>
 
       <div style={{ marginTop: 24 }}>
@@ -186,11 +187,13 @@ export default function Dashboard() {
   )
 }
 
-function Stat({ label, value }) {
+function Stat({ label, value, to }) {
   return (
     <div className="card">
       <div className="stat-label">{label}</div>
-      <div className="stat">{value}</div>
+      <div className="stat">
+        {to ? <Link to={to} style={{ textDecoration: 'underline' }}>{value}</Link> : value}
+      </div>
     </div>
   )
 }
