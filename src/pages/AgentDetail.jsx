@@ -7,6 +7,7 @@ export default function AgentDetail() {
   const [agent, setAgent] = useState(null)
   const [licenses, setLicenses] = useState([])
   const [appts, setAppts] = useState([])
+  const [licenseFilter, setLicenseFilter] = useState('active')
 
   useEffect(() => { load() }, [npn])
 
@@ -22,6 +23,13 @@ export default function AgentDetail() {
   }
 
   if (!agent) return <div><Link to="/agents">← Agents</Link><p>Loading…</p></div>
+
+  const filteredLicenses = licenses.filter(r => {
+    if (licenseFilter === 'all') return true
+    if (licenseFilter === 'active') return r.status === 'Active'
+    return r.status !== 'Active'
+  })
+
   return (
     <>
       <Link to="/agents">← Agents</Link>
@@ -29,11 +37,31 @@ export default function AgentDetail() {
       <p style={{ color: '#64748b' }}>NPN {agent.npn} · {agent.email}</p>
 
       <div className="card">
-        <h2>Licenses ({licenses.length})</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <h2 style={{ margin: 0 }}>Licenses ({filteredLicenses.length})</h2>
+          <div style={{ display: 'inline-flex', border: '1px solid #cbd5e1', borderRadius: 6, overflow: 'hidden' }}>
+            {['active', 'all', 'inactive'].map(opt => (
+              <button
+                key={opt}
+                onClick={() => setLicenseFilter(opt)}
+                style={{
+                  padding: '6px 12px',
+                  border: 0,
+                  background: licenseFilter === opt ? 'var(--nsba-navy)' : '#fff',
+                  color: licenseFilter === opt ? '#fff' : 'var(--nsba-navy)',
+                  fontSize: 13,
+                  textTransform: 'capitalize',
+                }}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+        </div>
         <table>
           <thead><tr><th>State</th><th>Type</th><th>LOA</th><th>Number</th><th>Status</th><th>Expires</th></tr></thead>
           <tbody>
-            {licenses.map((r, i) => (
+            {filteredLicenses.map((r, i) => (
               <tr key={i}>
                 <td>{r.state}</td><td>{r.license_type}</td><td>{r.loa}</td>
                 <td>{r.license_number}</td>
