@@ -11,6 +11,8 @@ export default function Imports() {
   const [result, setResult] = useState(null)
   const [error, setError] = useState('')
   const [clearing, setClearing] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+  const [syncResult, setSyncResult] = useState(null)
 
   const importer = IMPORTERS[importerKey]
 
@@ -87,6 +89,25 @@ export default function Imports() {
     }
   }
 
+  async function syncOnyx() {
+    setSyncing(true); setError(''); setSyncResult(null)
+    try {
+      const res = await fetch('/api/sync-licenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imported_by: user?.primaryEmailAddress?.emailAddress || null }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || `Sync failed (${res.status})`)
+      setSyncResult(data)
+    } catch (e) {
+      console.error(e)
+      setError(e.message || String(e))
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   async function clearAll() {
     if (!window.confirm('This will delete ALL data from every table (licenses, appointments, agents, import history). Are you sure?')) return
     setClearing(true); setError('')
@@ -110,6 +131,25 @@ export default function Imports() {
     <>
       <h1>Imports</h1>
       <div className="card">
+        <h2>Sync licenses from Onyx</h2>
+        <p style={{ color: '#64748b', fontSize: 13 }}>
+          Pulls every agent's current licenses straight from Onyx and mirrors them into the
+          Licenses table — no file needed. Onyx refreshes from NIPR daily, so running this once
+          a day keeps you current.
+        </p>
+        <button className="btn" disabled={syncing} onClick={syncOnyx}>
+          {syncing ? 'Syncing…' : 'Sync from Onyx'}
+        </button>
+        {syncResult && (
+          <div style={{ color: '#166534', marginTop: 8 }}>
+            Synced — {syncResult.agents} agents, {syncResult.licenses} licenses
+            {syncResult.detail_failures ? `, ${syncResult.detail_failures} agents skipped (fetch error)` : ''}.
+          </div>
+        )}
+      </div>
+
+      <div className="card" style={{ marginTop: 24 }}>
+        <h2>Import a file</h2>
         <p>Upload a source file. Existing rows will be updated (upsert).</p>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>
           <select value={importerKey} onChange={e => { setImporterKey(e.target.value); setFile(null); setResult(null) }}>
