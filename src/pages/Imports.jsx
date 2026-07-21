@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useUser } from '@clerk/clerk-react'
 import { IMPORTERS, IMPORTER_LIST } from '../lib/importers/index.js'
 import { supabase } from '../lib/supabase.js'
@@ -13,8 +13,21 @@ export default function Imports() {
   const [clearing, setClearing] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [syncResult, setSyncResult] = useState(null)
+  const [lastSync, setLastSync] = useState(null)
 
   const importer = IMPORTERS[importerKey]
+
+  const loadLastSync = useCallback(async () => {
+    const { data } = await supabase
+      .from('import_runs')
+      .select('imported_at, row_count, imported_by')
+      .eq('source', 'onyx')
+      .order('imported_at', { ascending: false })
+      .limit(1)
+    setLastSync(data?.[0] || null)
+  }, [])
+
+  useEffect(() => { loadLastSync() }, [loadLastSync])
 
   async function run() {
     if (!file || !importer) return
@@ -100,6 +113,7 @@ export default function Imports() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || `Sync failed (${res.status})`)
       setSyncResult(data)
+      loadLastSync()
     } catch (e) {
       console.error(e)
       setError(e.message || String(e))
@@ -140,6 +154,11 @@ export default function Imports() {
         <button className="btn" disabled={syncing} onClick={syncOnyx}>
           {syncing ? 'Syncing…' : 'Sync from Onyx'}
         </button>
+        <div style={{ color: '#64748b', fontSize: 13, marginTop: 8 }}>
+          {lastSync
+            ? `Last synced ${formatWhen(lastSync.imported_at)} · ${lastSync.row_count ?? 0} licenses${lastSync.imported_by ? ` · by ${lastSync.imported_by}` : ' · by daily cron'}`
+            : 'Never synced yet.'}
+        </div>
         {syncResult && (
           <div style={{ color: '#166534', marginTop: 8 }}>
             Synced — {syncResult.agents} agents, {syncResult.licenses} licenses
@@ -187,4 +206,14 @@ function chunk(arr, size) {
   const out = []
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size))
   return out
+}
+
+function formatWhen(ts) {
+  const d = new Date(ts)
+  const mins = Math.round((Date.now() - d.getTime()) / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins} min ago`
+  const hrs = Math.round(mins / 60)
+  if (hrs < 24) return `${hrs} hr ago`
+  return d.toLocaleString()
 }
