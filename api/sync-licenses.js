@@ -115,17 +115,30 @@ export default async function handler(req, res) {
     //    touched, so a partial Onyx failure never wipes good data.
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false } })
 
-    for (const c of chunk(agentRows, 500)) {
+    // Dedupe by conflict key — Onyx can return two user records sharing an NPN,
+    // or repeat a (state, license_number, loa) combo. Postgres rejects duplicate
+    // conflict keys within a single upsert/insert, so collapse them first.
+    const agentMap = new Map()
+    for (const a of agentRows) agentMap.set(a.npn, a)
+    const dedupAgents = [...agentMap.values()]
+
+    const licMap = new Map()
+    for (const l of licenseRows) {
+      licMap.set(`${l.npn}|${l.state}|${l.license_number}|${l.loa}`, l)
+    }
+    const dedupLicenses = [...licMap.values()]
+
+    for (const c of chunk(dedupAgents, 500)) {
       const { error } = await supabase.from('agents').upsert(c, { onConflict: 'npn' })
       if (error) throw new Error(`agents upsert: ${error.message}`)
     }
 
-    for (const npns of chunk(syncedNpns, 100)) {
+    for (const npns of chunk([...new Set(syncedNpns)], 100)) {
       const { error } = await supabase.from('licenses').delete().in('npn', npns)
       if (error) throw new Error(`licenses delete: ${error.message}`)
     }
 
-    for (const c of chunk(licenseRows, 500)) {
+    for (const c of chunk(dedupLicenses, 500)) {
       const { error } = await supabase.from('licenses').insert(c)
       if (error) throw new Error(`licenses insert: ${error.message}`)
     }
@@ -134,15 +147,15 @@ export default async function handler(req, res) {
     await supabase.from('import_runs').insert({
       source: 'onyx',
       filename: null,
-      row_count: licenseRows.length,
+      row_count: dedupLicenses.length,
       imported_by,
-      notes: `Onyx sync: ${agentRows.length} agents, ${licenseRows.length} licenses, ${failed} detail failures`,
+      notes: `Onyx sync: ${dedupAgents.length} agents, ${dedupLicenses.length} licenses, ${failed} detail failures`,
     })
 
     return res.status(200).json({
       users: users.length,
-      agents: agentRows.length,
-      licenses: licenseRows.length,
+      agents: dedupAgents.length,
+      licenses: dedupLicenses.length,
       detail_failures: failed,
     })
   } catch (e) {
