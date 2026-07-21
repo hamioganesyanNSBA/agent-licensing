@@ -4,6 +4,8 @@ import * as uhc         from './uhc.js'
 import * as devoted     from './devoted.js'
 import * as wellcare    from './wellcare.js'
 import * as healthspring from './healthspring.js'
+import * as scan        from './scan.js'
+import * as zing        from './zing.js'
 
 export const IMPORTERS = {
   licenses,
@@ -12,6 +14,8 @@ export const IMPORTERS = {
   devoted,
   wellcare,
   healthspring,
+  scan,
+  zing,
 }
 
 export const IMPORTER_LIST = Object.values(IMPORTERS).map(m => m.meta)
