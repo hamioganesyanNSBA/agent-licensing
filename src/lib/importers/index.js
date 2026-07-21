@@ -1,8 +1,9 @@
-import * as licenses from './licenses.js'
-import * as aetna    from './aetna.js'
-import * as uhc      from './uhc.js'
-import * as devoted  from './devoted.js'
-import * as wellcare from './wellcare.js'
+import * as licenses    from './licenses.js'
+import * as aetna       from './aetna.js'
+import * as uhc         from './uhc.js'
+import * as devoted     from './devoted.js'
+import * as wellcare    from './wellcare.js'
+import * as healthspring from './healthspring.js'
 
 export const IMPORTERS = {
   licenses,
@@ -10,6 +11,7 @@ export const IMPORTERS = {
   uhc,
   devoted,
   wellcare,
+  healthspring,
 }
 
 export const IMPORTER_LIST = Object.values(IMPORTERS).map(m => m.meta)
