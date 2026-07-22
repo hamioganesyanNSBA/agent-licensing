@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase.js'
 
 export default function Imports() {
   const { user } = useUser()
-  const [importerKey, setImporterKey] = useState('licenses')
+  const [importerKey, setImporterKey] = useState(IMPORTER_LIST[0]?.key || '')
   const [file, setFile] = useState(null)
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState(null)

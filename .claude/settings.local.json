@@ -19,7 +19,15 @@
       "Read(//tmp/**)",
       "Bash(node:*)",
       "Bash(mv us-states-paths.ts src/lib/usStatePaths.js)",
-      "Bash(rm us_states_map.svg)"
+      "Bash(rm us_states_map.svg)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(command -v python)",
+      "Bash(command -v python3)",
+      "Bash(command -v node)",
+      "Read(//c/Users/hami/**)",
+      "Bash(curl -sL --max-time 15 \"https://downloads.claude.ai/claude-code-releases/latest\")"
     ]
   }
 }
