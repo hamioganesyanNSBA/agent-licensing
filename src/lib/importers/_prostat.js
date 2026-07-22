@@ -29,7 +29,7 @@ export async function parseProStat(file, carrier) {
       email:      null,
       carrier,
       plan_year:  2026,
-      writing_number: null,
+      writing_number: npn,   // these carriers use the NPN as the writing number
       state,
       product_category: 'MA',
       rts_status: ready ? 'Y' : 'N',

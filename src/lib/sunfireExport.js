@@ -31,6 +31,11 @@ const CARRIER_DISPLAY = {
 
 const asNumberIfNumeric = v => (v != null && /^\d+$/.test(String(v)) ? Number(v) : (v ?? null))
 
+// Writing-number rule: every carrier uses the agent's NPN, EXCEPT these two,
+// which have their own carrier-issued writing numbers (Anthem's ETIN from the
+// Anthem RTS report; UHC's from the UHC readiness report).
+const OWN_WRITING_NUMBER = new Set(['UnitedHealthcare', 'Anthem'])
+
 /**
  * appointments: rows from carrier_appointments (all years).
  * agents:       rows from the agents table (npn, first_name, last_name, email) —
@@ -67,7 +72,8 @@ export function buildSunfireRows(appointments, agents, activeNpns, { fmo = null 
   }
 
   const rows = [...groups.values()].flatMap(g => {
-    const writing = [...g.writing_numbers.entries()].sort((x, y) => y[1] - x[1])[0]?.[0] ?? null
+    const stored = [...g.writing_numbers.entries()].sort((x, y) => y[1] - x[1])[0]?.[0] ?? null
+    const writing = OWN_WRITING_NUMBER.has(g.carrier) ? stored : g.agent_npn
     const displayNames = CARRIER_DISPLAY[g.carrier] || [g.carrier]
     return displayNames.map(carrierName => ({
       'Agent NPN':   asNumberIfNumeric(g.agent_npn),

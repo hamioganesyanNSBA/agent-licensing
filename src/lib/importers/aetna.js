@@ -43,7 +43,7 @@ export async function parseFile(file) {
       email:      clean(r['CONT_EMAIL']),
       carrier:    'Aetna',
       plan_year:  2026,
-      writing_number: clean(r['BROKER_ID']),
+      writing_number: npn,   // Sunfire uses the NPN as Aetna's writing number (not BROKER_ID)
       state,
       product_category: product,
       rts_status: ready ? 'Y' : 'N',
