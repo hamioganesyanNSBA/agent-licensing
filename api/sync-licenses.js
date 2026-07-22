@@ -58,18 +58,21 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1) List every user in the org (page_size 1000 fits the whole roster).
+    // 1) List active users in the org (page_size 1000 fits the whole roster).
+    //    is_active=true so only current Onyx seats count — deactivated seats are
+    //    excluded here and pruned below.
     const users = []
     for (let page = 1; ; page++) {
-      const data = await onyxGet(`/api/external/v1/users/${ONYX_ORG}?page=${page}&page_size=1000`)
+      const data = await onyxGet(`/api/external/v1/users/${ONYX_ORG}?page=${page}&page_size=1000&is_active=true`)
       users.push(...(data.items || []))
       if (!data.has_next) break
     }
 
     // 2) Fetch per-user detail (licenses live only on the detail record).
-    //    Only users with an NPN are agents. Per-user failures are non-fatal:
-    //    we simply don't touch that agent's existing licenses.
-    const agentUsers = users.filter(u => u.npn_number)
+    //    Only active users with an NPN are agents. Per-user failures are
+    //    non-fatal: we simply don't touch that agent's existing licenses.
+    const agentUsers = users.filter(u => u.npn_number && u.is_active)
+    const activeNpns = new Set(agentUsers.map(u => u.npn_number))
     const agentRows = []
     const licenseRows = []
     const syncedNpns = []
@@ -143,13 +146,29 @@ export default async function handler(req, res) {
       if (error) throw new Error(`licenses insert: ${error.message}`)
     }
 
+    // 4) Prune departed / deactivated agents: delete every licenses + agents row
+    //    whose NPN is not a current active Onyx seat. This is what keeps agents
+    //    who have left off the list. Guarded — if the active list came back
+    //    empty (an API hiccup), skip pruning entirely rather than wipe the tables.
+    let pruned_licenses = 0, pruned_agents = 0
+    if (activeNpns.size > 0) {
+      const inList = `(${[...activeNpns].join(',')})`
+      const licDel = await supabase.from('licenses').delete({ count: 'exact' }).not('npn', 'in', inList)
+      if (licDel.error) throw new Error(`licenses prune: ${licDel.error.message}`)
+      pruned_licenses = licDel.count || 0
+      const agtDel = await supabase.from('agents').delete({ count: 'exact' }).not('npn', 'in', inList)
+      if (agtDel.error) throw new Error(`agents prune: ${agtDel.error.message}`)
+      pruned_agents = agtDel.count || 0
+    }
+
     const imported_by = req.body?.imported_by || null
     await supabase.from('import_runs').insert({
       source: 'onyx',
       filename: null,
       row_count: dedupLicenses.length,
       imported_by,
-      notes: `Onyx sync: ${dedupAgents.length} agents, ${dedupLicenses.length} licenses, ${failed} detail failures`,
+      notes: `Onyx sync: ${dedupAgents.length} agents, ${dedupLicenses.length} licenses, `
+        + `${failed} detail failures, pruned ${pruned_agents} agents / ${pruned_licenses} licenses`,
     })
 
     return res.status(200).json({
@@ -157,6 +176,8 @@ export default async function handler(req, res) {
       agents: dedupAgents.length,
       licenses: dedupLicenses.length,
       detail_failures: failed,
+      pruned_agents,
+      pruned_licenses,
     })
   } catch (e) {
     console.error(e)

@@ -162,7 +162,8 @@ export default function Imports() {
         {syncResult && (
           <div style={{ color: '#166534', marginTop: 8 }}>
             Synced — {syncResult.agents} agents, {syncResult.licenses} licenses
-            {syncResult.detail_failures ? `, ${syncResult.detail_failures} agents skipped (fetch error)` : ''}.
+            {syncResult.detail_failures ? `, ${syncResult.detail_failures} agents skipped (fetch error)` : ''}
+            {syncResult.pruned_agents ? `; removed ${syncResult.pruned_agents} departed agent(s)` : ''}.
           </div>
         )}
       </div>
