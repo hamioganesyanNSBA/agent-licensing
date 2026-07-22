@@ -1,31 +1,24 @@
 import { useState } from 'react'
-import { supabase } from '../lib/supabase.js'
+import { fetchAll } from '../lib/fetchAll.js'
 import { buildSunfireRows, downloadSunfireXlsx } from '../lib/sunfireExport.js'
 
 export default function SunfireExport() {
-  const [year, setYear] = useState(2026)
   const [busy, setBusy] = useState(false)
   const [preview, setPreview] = useState([])
+  const [total, setTotal] = useState(0)
 
   async function run({ download }) {
     setBusy(true)
     try {
-      // Fetch ALL appointments for the chosen plan year (paginated).
-      let all = []
-      let from = 0
-      const PAGE = 1000
-      while (true) {
-        const { data, error } = await supabase
-          .from('carrier_appointments')
-          .select('agent_npn,first_name,last_name,email,carrier,plan_year,writing_number,state,product_category,rts_status')
-          .eq('plan_year', year)
-          .range(from, from + PAGE - 1)
-        if (error) throw error
-        all = all.concat(data || [])
-        if (!data || data.length < PAGE) break
-        from += PAGE
-      }
-      const rows = buildSunfireRows(all)
+      const [appointments, agents, licenseNpns] = await Promise.all([
+        fetchAll('carrier_appointments',
+          'agent_npn,first_name,last_name,email,carrier,plan_year,writing_number,state,product_category,rts_status'),
+        fetchAll('agents', 'npn,first_name,last_name,email'),
+        fetchAll('licenses', 'npn'),
+      ])
+      const activeNpns = new Set(licenseNpns.map(r => r.npn))
+      const rows = buildSunfireRows(appointments, agents, activeNpns)
+      setTotal(rows.length)
       setPreview(rows.slice(0, 25))
       if (download) {
         const today = new Date()
@@ -43,22 +36,21 @@ export default function SunfireExport() {
     <>
       <h1>Sunfire RTS Export</h1>
       <div className="card">
-        <p>Generates the <code>NSBA_RTS_*.xlsx</code> file to upload to Sunfire. Reflects current data in this app for the selected plan year.</p>
+        <p>
+          Generates the <code>NSBA_RTS_*.xlsx</code> file to upload to Sunfire. Includes only
+          active agents and only states where they are ready to sell (RTS = Y); every appointed
+          state carries all products (MA; PDP; CSNP; DSNP).
+        </p>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <label>Plan year:&nbsp;
-            <select value={year} onChange={e => setYear(parseInt(e.target.value, 10))}>
-              <option value={2025}>2025</option>
-              <option value={2026}>2026</option>
-            </select>
-          </label>
           <button className="btn-secondary btn" disabled={busy} onClick={() => run({ download: false })}>Preview</button>
           <button className="btn"           disabled={busy} onClick={() => run({ download: true })}>Generate &amp; download</button>
+          {total > 0 && <span style={{ color: '#64748b', fontSize: 13 }}>{total} rows</span>}
         </div>
       </div>
 
       {preview.length > 0 && (
         <div className="card">
-          <h2>Preview (first 25 rows)</h2>
+          <h2>Preview (first 25 of {total} rows)</h2>
           <table>
             <thead><tr>{Object.keys(preview[0]).map(k => <th key={k}>{k}</th>)}</tr></thead>
             <tbody>
