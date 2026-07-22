@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fetchAll } from '../lib/fetchAll.js'
+import { statesInFootprint } from '../lib/carrierFootprints.js'
 
 // Carrier coverage tracking: for every active agent, compare the states where
-// they hold an active license against the states where they're RTS with each
-// carrier. Green = appointed in every licensed state, amber = partial,
-// red = no RTS appointments with that carrier at all.
+// they hold an active license — restricted to states where the carrier
+// actually sells plans (see carrierFootprints.js) — against the states where
+// they're RTS with that carrier. Green = appointed in every sellable licensed
+// state, amber = partial, red = no RTS appointments at all, grey = the carrier
+// sells no plans in any of the agent's licensed states (not a gap).
 
 const KNOWN_CARRIERS = ['Aetna', 'Anthem', 'Cigna', 'Devoted', 'SCAN', 'UnitedHealthcare', 'Wellcare', 'Zing']
 const SHORT = { UnitedHealthcare: 'UHC' }
@@ -63,12 +66,16 @@ export default function Coverage() {
       const byCarrier = rtsByNpn.get(npn) || new Map()
       const cells = carriers.map(carrier => {
         const rts = byCarrier.get(carrier) || new Set()
-        const covered = [...licensed].filter(s => rts.has(s))
-        const missing = [...licensed].filter(s => !rts.has(s)).sort()
-        const level = covered.length === 0 ? 'none' : (missing.length === 0 ? 'full' : 'partial')
-        return { carrier, covered: covered.length, total: licensed.size, missing, level }
+        // Only states where the carrier actually sells plans count.
+        const sellable = statesInFootprint(carrier, licensed)
+        const covered = sellable.filter(s => rts.has(s))
+        const missing = sellable.filter(s => !rts.has(s)).sort()
+        const level = sellable.length === 0 ? 'na'
+          : covered.length === 0 ? 'none'
+          : missing.length === 0 ? 'full' : 'partial'
+        return { carrier, covered: covered.length, total: sellable.length, missing, level }
       })
-      const gapCount = cells.filter(c => c.level !== 'full').length
+      const gapCount = cells.filter(c => c.level === 'none' || c.level === 'partial').length
       return { npn, name: nameByNpn.get(npn) || npn, licensed: [...licensed].sort(), cells, gapCount }
     }).sort((a, b) => a.name.localeCompare(b.name))
 
@@ -88,8 +95,8 @@ export default function Coverage() {
 
   const cellStyle = (level) => ({
     textAlign: 'center', cursor: 'pointer', fontWeight: 600, fontSize: 13,
-    background: level === 'full' ? '#dcfce7' : level === 'partial' ? '#fef3c7' : '#fee2e2',
-    color:      level === 'full' ? '#166534' : level === 'partial' ? '#92400e' : '#991b1b',
+    background: level === 'full' ? '#dcfce7' : level === 'partial' ? '#fef3c7' : level === 'none' ? '#fee2e2' : '#f1f5f9',
+    color:      level === 'full' ? '#166534' : level === 'partial' ? '#92400e' : level === 'none' ? '#991b1b' : '#94a3b8',
   })
 
   return (
@@ -109,7 +116,10 @@ export default function Coverage() {
             <input type="checkbox" checked={gapsOnly} onChange={e => setGapsOnly(e.target.checked)} style={{ width: 'auto' }} />
             Show only agents with gaps
           </label>
-          <span style={{ color: '#64748b', fontSize: 13 }}>{filtered.length} agents · cell = RTS states / licensed states · click a cell for missing states</span>
+          <span style={{ color: '#64748b', fontSize: 13 }}>
+            {filtered.length} agents · cell = RTS states / licensed states where the carrier sells plans
+            · grey — = carrier has no plans in the agent&apos;s states · click a cell for missing states
+          </span>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table>
@@ -152,8 +162,9 @@ function FragmentRow({ row, expanded, onToggle, cellStyle, carrierCount }) {
         <td style={{ textAlign: 'center' }}>{row.licensed.length}</td>
         {row.cells.map(c => (
           <td key={c.carrier} style={cellStyle(c.level)} onClick={onToggle}
-              title={c.missing.length ? `Missing: ${c.missing.join(', ')}` : 'Fully appointed'}>
-            {c.covered}/{c.total}
+              title={c.level === 'na' ? 'Carrier sells no plans in this agent’s licensed states'
+                : c.missing.length ? `Missing: ${c.missing.join(', ')}` : 'Fully appointed'}>
+            {c.level === 'na' ? '—' : `${c.covered}/${c.total}`}
           </td>
         ))}
       </tr>

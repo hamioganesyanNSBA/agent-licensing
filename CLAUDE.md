@@ -113,6 +113,13 @@ Parsing helpers live in `src/lib/parse.js` (`readWorkbook`, `sheetToObjects`,
 column headers, and "LAST, FIRST" name formats are all real cases handled in
 existing importers; mirror those patterns.
 
+## Carrier footprints (`src/lib/carrierFootprints.js`)
+
+The Coverage page compares appointments only against states where each carrier
+actually sells MA plans. Regional footprints (SCAN, Zing, Devoted, Anthem) are
+hardcoded there with sources; near-national carriers are `null` (unrestricted).
+**Verified for plan year 2026 — must be re-verified every AEP.**
+
 ## Notes
 
 - Everything runs in the browser; there is no backend to run or deploy separately.
