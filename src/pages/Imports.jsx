@@ -54,22 +54,10 @@ export default function Imports() {
       }
 
       if (parsed.appointments?.length) {
-        const agentMap = new Map()
-        for (const a of parsed.appointments) {
-          if (a.agent_npn && !agentMap.has(a.agent_npn)) {
-            agentMap.set(a.agent_npn, {
-              npn:        a.agent_npn,
-              first_name: a.first_name,
-              last_name:  a.last_name,
-              email:      a.email,
-            })
-          }
-        }
-        const agentChunks = chunk([...agentMap.values()], 500)
-        for (const c of agentChunks) {
-          const { error } = await supabase.from('agents').upsert(c, { onConflict: 'npn' })
-          if (error) throw error
-        }
+        // NOTE: appointment imports intentionally do NOT touch the agents
+        // table — the roster (names + emails) is owned by the Onyx sync, and
+        // carrier files carry no email, so upserting here would clobber the
+        // synced emails with null (and resurrect departed agents).
         const apptChunks = chunk(parsed.appointments.map(a => ({
           ...a, source_file: file.name,
         })), 500)
