@@ -21,6 +21,7 @@ export async function parseFile(file) {
   const idx = (name) => headers.indexOf(name)
   const iName = idx('Agent Name')
   const iNpn  = idx('NIPR Number')
+  const iAgentId = idx('Agent ID')   // col J — UHC's writing number for Sunfire
   const stateCols = headers
     .map((h, i) => ({ h, i }))
     .filter(({ h }) => h && STATE_RE.test(h))
@@ -30,6 +31,7 @@ export async function parseFile(file) {
     const row = rows[r]
     const npn = clean(row[iNpn])
     if (!npn) continue
+    const agentId = iAgentId >= 0 ? clean(row[iAgentId]) : null
     const name = clean(row[iName]) || ''
     const [last, first] = name.split(',').map(s => s && s.trim())
     for (const { h: state, i } of stateCols) {
@@ -45,7 +47,7 @@ export async function parseFile(file) {
           email:      null,
           carrier:    'UnitedHealthcare',
           plan_year:  2026,
-          writing_number: npn,
+          writing_number: agentId || npn,
           state,
           product_category: product,
           rts_status: ready ? 'Y' : 'N',
