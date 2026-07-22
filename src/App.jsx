@@ -41,7 +41,7 @@ export default function App() {
             <aside className="sidebar">
               <div className="brand">
                 <img src="/nsba-logo.png" alt="NSBA" />
-                <h1>Licensing</h1>
+                <h1>Licensing &amp; Appointments</h1>
               </div>
               <nav>
                 <NavLink to="/" end>Dashboard</NavLink>

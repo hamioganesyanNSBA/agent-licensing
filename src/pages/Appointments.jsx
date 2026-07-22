@@ -1,9 +1,20 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { useLicensedNpns } from '../lib/useLicensedNpns.js'
+import { Th, useSortState, sortCompare } from '../components/SortHeader.jsx'
 import Pagination from '../components/Pagination.jsx'
 
 const PER_PAGE = 20
+
+const COLUMNS = [
+  { key: 'last_name',        label: 'Agent' },
+  { key: 'agent_npn',        label: 'NPN' },
+  { key: 'carrier',          label: 'Carrier' },
+  { key: 'plan_year',        label: 'Year' },
+  { key: 'state',            label: 'State' },
+  { key: 'product_category', label: 'Product' },
+  { key: 'rts_status',       label: 'RTS' },
+]
 
 export default function Appointments() {
   const [rows, setRows] = useState([])
@@ -12,6 +23,7 @@ export default function Appointments() {
   const [year, setYear] = useState(2026)
   const [rts, setRts] = useState('')
   const [name, setName] = useState('')
+  const [sort, toggleSort] = useSortState('last_name')
   const [page, setPage] = useState(1)
   const licensedNpns = useLicensedNpns()
 
@@ -21,7 +33,7 @@ export default function Appointments() {
     return () => clearTimeout(t)
   }, [carrier, state, year, rts, name, licensedNpns])
 
-  useEffect(() => { setPage(1) }, [carrier, state, year, rts, name])
+  useEffect(() => { setPage(1) }, [carrier, state, year, rts, name, sort])
 
   async function load() {
     let q = supabase.from('carrier_appointments')
@@ -41,7 +53,8 @@ export default function Appointments() {
     setRows(data || [])
   }
 
-  const slice = rows.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+  const sorted = [...rows].sort(sortCompare(sort))
+  const slice = sorted.slice((page - 1) * PER_PAGE, page * PER_PAGE)
 
   return (
     <>
@@ -73,7 +86,9 @@ export default function Appointments() {
           <span style={{ color: '#64748b', fontSize: 13 }}>{rows.length} rows</span>
         </div>
         <table>
-          <thead><tr><th>Agent</th><th>NPN</th><th>Carrier</th><th>Year</th><th>State</th><th>Product</th><th>RTS</th></tr></thead>
+          <thead>
+            <tr>{COLUMNS.map(c => <Th key={c.key} col={c} sort={sort} onToggle={toggleSort} />)}</tr>
+          </thead>
           <tbody>
             {slice.map((r, i) => (
               <tr key={i}>
