@@ -85,6 +85,7 @@ export default function Imports() {
         agents:       parsed.agents?.length       || 0,
         licenses:     parsed.licenses?.length     || 0,
         appointments: parsed.appointments?.length || 0,
+        unmatched:    parsed.unmatched || null,
       }
       const total = counts.agents + counts.licenses + counts.appointments
       await supabase.from('import_runs').insert({
@@ -188,6 +189,12 @@ export default function Imports() {
         {result && (
           <div style={{ color: '#166534' }}>
             Imported — agents: {result.agents}, licenses: {result.licenses}, appointments: {result.appointments}
+            {result.unmatched?.length > 0 && (
+              <div style={{ color: '#92400e', marginTop: 8, fontSize: 13 }}>
+                {result.unmatched.length} writing name(s) skipped — no matching active agent:
+                <div style={{ marginTop: 4, color: '#64748b' }}>{result.unmatched.join(', ')}</div>
+              </div>
+            )}
           </div>
         )}
       </div>

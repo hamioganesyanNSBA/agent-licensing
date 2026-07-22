@@ -9,6 +9,7 @@ import * as wellcare    from './wellcare.js'
 import * as healthspring from './healthspring.js'
 import * as scan        from './scan.js'
 import * as zing        from './zing.js'
+import * as anthem      from './anthem.js'
 
 export const IMPORTERS = {
   aetna,
@@ -18,6 +19,7 @@ export const IMPORTERS = {
   healthspring,
   scan,
   zing,
+  anthem,
 }
 
 export const IMPORTER_LIST = Object.values(IMPORTERS).map(m => m.meta)
