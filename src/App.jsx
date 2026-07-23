@@ -6,6 +6,8 @@ import AgentDetail from './pages/AgentDetail.jsx'
 import Licenses from './pages/Licenses.jsx'
 import Appointments from './pages/Appointments.jsx'
 import Coverage from './pages/Coverage.jsx'
+import Releases from './pages/Releases.jsx'
+import ReleaseDetail from './pages/ReleaseDetail.jsx'
 import Imports from './pages/Imports.jsx'
 import SunfireExport from './pages/SunfireExport.jsx'
 
@@ -49,6 +51,7 @@ export default function App() {
                 <NavLink to="/licenses">Licenses</NavLink>
                 <NavLink to="/appointments">Appointments</NavLink>
                 <NavLink to="/coverage">Coverage</NavLink>
+                <NavLink to="/releases">Releases</NavLink>
                 <NavLink to="/imports">Imports</NavLink>
                 <NavLink to="/sunfire">Sunfire Export</NavLink>
               </nav>
@@ -65,6 +68,8 @@ export default function App() {
                 <Route path="/licenses" element={<Licenses />} />
                 <Route path="/appointments" element={<Appointments />} />
                 <Route path="/coverage" element={<Coverage />} />
+                <Route path="/releases" element={<Releases />} />
+                <Route path="/releases/:id" element={<ReleaseDetail />} />
                 <Route path="/imports" element={<Imports />} />
                 <Route path="/sunfire" element={<SunfireExport />} />
                 <Route path="*" element={<Navigate to="/" />} />

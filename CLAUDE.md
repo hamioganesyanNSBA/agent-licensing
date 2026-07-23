@@ -113,6 +113,18 @@ Parsing helpers live in `src/lib/parse.js` (`readWorkbook`, `sheetToObjects`,
 column headers, and "LAST, FIRST" name formats are all real cases handled in
 existing importers; mirror those patterns.
 
+## Release workflows (`/releases`)
+
+Tracks carrier release processes per agent: select agent + carriers → upload
+release letter (+ Aetna Hierarchy Change Request when Aetna is included) →
+per-carrier Sent → Contract approved → Confirmed-in-RTS, every step
+timestamped, with gating (steps must complete in order, undo in reverse).
+Tables `release_workflows` / `release_carriers` and the public `releases`
+storage bucket come from `supabase/releases.sql` (run manually in the Supabase
+SQL editor — the Releases page shows a setup notice if missing). Progress and
+completion logic live in `src/lib/releases.js`; a workflow auto-completes when
+the letter is uploaded and every carrier is RTS-confirmed.
+
 ## Carrier footprints (`src/lib/carrierFootprints.js`)
 
 The Coverage page compares appointments only against states where each carrier
