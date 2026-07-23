@@ -116,6 +116,16 @@ export default function Imports() {
             .upsert(c, { onConflict: 'agent_npn,carrier,plan_year,state,product_category' })
           if (error) throw error
         }
+        // Mirror the carrier's report: rows that dropped out of the file are
+        // no longer valid appointments, so remove them automatically. Safe —
+        // everything here is derived from carrier files, and re-uploading a
+        // file restores its rows.
+        if (diff?.missing.length) {
+          for (const c of chunk(diff.missing.map(m => m.id).filter(Boolean), 200)) {
+            const { error } = await supabase.from('carrier_appointments').delete().in('id', c)
+            if (error) throw error
+          }
+        }
       }
 
       // Fresh RTS data may satisfy open release workflows — auto-confirm them.
@@ -131,17 +141,17 @@ export default function Imports() {
         diff,
       }
       const total = counts.agents + counts.licenses + counts.appointments
-      const { data: runRow } = await supabase.from('import_runs').insert({
+      await supabase.from('import_runs').insert({
         source: importerKey,
         filename: file.name,
         row_count: total,
         imported_by: user?.primaryEmailAddress?.emailAddress || null,
         notes: diff
           ? `+${diff.added.length} new, ${diff.gained.length} gained RTS, ${diff.lost.length} lost RTS, `
-            + `${diff.missing.length} not in file, ${diff.unchanged} unchanged`
+            + `${diff.missing.length} auto-removed (not in file), ${diff.unchanged} unchanged`
           : null,
-      }).select('id,notes').single()
-      setResult({ ...counts, runId: runRow?.id, runNotes: runRow?.notes })
+      })
+      setResult(counts)
     } catch (e) {
       console.error(e)
       setError(e.message || String(e))
@@ -167,31 +177,6 @@ export default function Imports() {
       setError(e.message || String(e))
     } finally {
       setSyncing(false)
-    }
-  }
-
-  async function removeMissing() {
-    const missing = result?.diff?.missing || []
-    if (!missing.length) return
-    if (!window.confirm(
-      `Delete ${missing.length} appointment row(s) that no longer appear in the carrier's report? `
-      + `They will disappear from the Appointments page, Coverage, and the Sunfire export. This cannot be undone.`)) return
-    setBusy(true); setError('')
-    try {
-      for (const c of chunk(missing.map(m => m.id).filter(Boolean), 200)) {
-        const { error } = await supabase.from('carrier_appointments').delete().in('id', c)
-        if (error) throw error
-      }
-      if (result.runId) {
-        await supabase.from('import_runs')
-          .update({ notes: `${result.runNotes || ''} — ${missing.length} stale row(s) removed` })
-          .eq('id', result.runId)
-      }
-      setResult(r => ({ ...r, diff: { ...r.diff, missing: [], missingRemoved: missing.length } }))
-    } catch (e) {
-      setError(e.message || String(e))
-    } finally {
-      setBusy(false)
     }
   }
 
@@ -284,16 +269,11 @@ export default function Imports() {
             <ChangeSection title="Gained RTS (N → Y)" rows={result.diff.gained} color="#166534" open />
             <ChangeSection title="Lost RTS (Y → N)" rows={result.diff.lost} color="#991b1b" open />
             <ChangeSection title="New appointments (not in app before)" rows={result.diff.added} color="#14266b" />
-            <ChangeSection title="In app but missing from this file" rows={result.diff.missing} color="#92400e" />
+            <ChangeSection title="Removed automatically (no longer in the carrier's report)" rows={result.diff.missing} color="#92400e" open />
             {result.diff.missing.length > 0 && (
-              <button className="btn btn-danger" style={{ marginTop: 4, padding: '6px 12px', fontSize: 13 }}
-                disabled={busy} onClick={removeMissing}>
-                Remove these {result.diff.missing.length} stale row(s) from the app
-              </button>
-            )}
-            {result.diff.missingRemoved > 0 && (
-              <div style={{ color: '#166534', fontSize: 13, marginTop: 4 }}>
-                🗑 {result.diff.missingRemoved} stale row(s) removed — Appointments, Coverage, and the Sunfire export now match this report.
+              <div style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>
+                🗑 These {result.diff.missing.length} row(s) were deleted so Appointments, Coverage, and the
+                Sunfire export match this report. Re-uploading a file that contains them restores them.
               </div>
             )}
           </div>
