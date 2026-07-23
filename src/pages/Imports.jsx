@@ -2,7 +2,52 @@ import { useState, useEffect, useCallback } from 'react'
 import { useUser } from '@clerk/clerk-react'
 import { IMPORTERS, IMPORTER_LIST } from '../lib/importers/index.js'
 import { supabase } from '../lib/supabase.js'
+import { fetchAll } from '../lib/fetchAll.js'
 import { autoConfirmRts } from '../lib/releases.js'
+
+// Compare parsed appointment rows against what's already stored for the same
+// carrier(s) + plan year(s), BEFORE upserting — so each import shows exactly
+// what changed: new appointments, RTS flips, and rows absent from the file.
+async function computeApptDiff(appointments) {
+  const carriers = [...new Set(appointments.map(a => a.carrier))]
+  const years = new Set(appointments.map(a => a.plan_year))
+  let existing = []
+  for (const c of carriers) {
+    const rows = await fetchAll('carrier_appointments',
+      'agent_npn,first_name,last_name,carrier,plan_year,state,product_category,rts_status',
+      { eq: { carrier: c } })
+    existing = existing.concat(rows.filter(r => years.has(r.plan_year)))
+  }
+  const key = a => `${a.agent_npn}|${a.carrier}|${a.plan_year}|${a.state}|${a.product_category}`
+  const oldMap = new Map(existing.map(r => [key(r), r]))
+  const gained = [], lost = [], added = [], missing = []
+  let unchanged = 0
+  const seen = new Set()
+  for (const row of appointments) {
+    const k = key(row)
+    seen.add(k)
+    const old = oldMap.get(k)
+    if (!old) added.push(row)
+    else if (old.rts_status !== row.rts_status) (row.rts_status === 'Y' ? gained : lost).push(row)
+    else unchanged++
+  }
+  for (const [k, row] of oldMap) if (!seen.has(k)) missing.push(row)
+  return { gained, lost, added, missing, unchanged }
+}
+
+function groupByAgent(rows) {
+  const m = new Map()
+  for (const r of rows) {
+    if (!m.has(r.agent_npn)) {
+      const name = `${r.last_name || ''}, ${r.first_name || ''}`.replace(/^, |, $/g, '')
+      m.set(r.agent_npn, { npn: r.agent_npn, name: name || r.agent_npn, states: new Set() })
+    }
+    m.get(r.agent_npn).states.add(r.state)
+  }
+  return [...m.values()]
+    .map(g => ({ ...g, states: [...g.states].sort() }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
 
 export default function Imports() {
   const { user } = useUser()
@@ -54,7 +99,10 @@ export default function Imports() {
         }
       }
 
+      let diff = null
       if (parsed.appointments?.length) {
+        // Diff against current data BEFORE writing, so the change report is real.
+        diff = await computeApptDiff(parsed.appointments)
         // NOTE: appointment imports intentionally do NOT touch the agents
         // table — the roster (names + emails) is owned by the Onyx sync, and
         // carrier files carry no email, so upserting here would clobber the
@@ -80,6 +128,7 @@ export default function Imports() {
         unmatched:    parsed.unmatched || null,
         autoConfirmed: auto.confirmed,
         autoCompleted: auto.completed,
+        diff,
       }
       const total = counts.agents + counts.licenses + counts.appointments
       await supabase.from('import_runs').insert({
@@ -87,6 +136,10 @@ export default function Imports() {
         filename: file.name,
         row_count: total,
         imported_by: user?.primaryEmailAddress?.emailAddress || null,
+        notes: diff
+          ? `+${diff.added.length} new, ${diff.gained.length} gained RTS, ${diff.lost.length} lost RTS, `
+            + `${diff.missing.length} not in file, ${diff.unchanged} unchanged`
+          : null,
       })
       setResult(counts)
     } catch (e) {
@@ -197,6 +250,18 @@ export default function Imports() {
             )}
           </div>
         )}
+        {result?.diff && (
+          <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid #e2e8f0' }}>
+            <h2 style={{ fontSize: 15, color: 'var(--nsba-navy)', margin: '0 0 4px' }}>Changes in this import</h2>
+            <p style={{ color: '#64748b', fontSize: 13, marginTop: 0 }}>
+              Compared against what the app had for this carrier before the upload · {result.diff.unchanged} rows unchanged
+            </p>
+            <ChangeSection title="Gained RTS (N → Y)" rows={result.diff.gained} color="#166534" open />
+            <ChangeSection title="Lost RTS (Y → N)" rows={result.diff.lost} color="#991b1b" open />
+            <ChangeSection title="New appointments (not in app before)" rows={result.diff.added} color="#14266b" />
+            <ChangeSection title="In app but missing from this file (left unchanged)" rows={result.diff.missing} color="#92400e" />
+          </div>
+        )}
       </div>
 
       <div className="card" style={{ marginTop: 24 }}>
@@ -207,6 +272,27 @@ export default function Imports() {
         </button>
       </div>
     </>
+  )
+}
+
+function ChangeSection({ title, rows, color, open }) {
+  const groups = groupByAgent(rows)
+  return (
+    <details open={open && rows.length > 0} style={{ marginBottom: 8 }}>
+      <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: 13, color: rows.length ? color : '#94a3b8' }}>
+        {title} — {rows.length === 0 ? 'none' : `${rows.length} row(s), ${groups.length} agent(s)`}
+      </summary>
+      {groups.length > 0 && (
+        <div style={{ margin: '6px 0 4px 16px', maxHeight: 260, overflowY: 'auto', fontSize: 13 }}>
+          {groups.map(g => (
+            <div key={g.npn} style={{ padding: '3px 0', borderBottom: '1px solid #f1f5f9' }}>
+              <strong>{g.name}</strong> <span style={{ color: '#94a3b8' }}>({g.npn})</span>
+              <span style={{ color: '#64748b' }}> — {g.states.join(', ')}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </details>
   )
 }
 
