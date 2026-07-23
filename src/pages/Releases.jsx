@@ -32,18 +32,24 @@ export default function Releases() {
   useEffect(() => { load() }, [])
 
   async function load() {
+    // Agents load independently — the roster must populate even when the
+    // release tables aren't set up yet.
+    fetchAll('agents', 'npn,first_name,last_name')
+      .then(ags => setAgents(ags.sort((a, b) =>
+        `${a.last_name}${a.first_name}`.localeCompare(`${b.last_name}${b.first_name}`))))
+      .catch(() => {})
     try {
       await autoConfirmRts()   // stamp any steps satisfied by freshly imported RTS data
-      const [wfs, rcs, ags] = await Promise.all([
+      const [wfs, rcs] = await Promise.all([
         fetchAll('release_workflows', '*'),
         fetchAll('release_carriers', '*'),
-        fetchAll('agents', 'npn,first_name,last_name'),
       ])
       setWorkflows(wfs)
       setCarrierRows(rcs)
-      setAgents(ags.sort((a, b) => `${a.last_name}${a.first_name}`.localeCompare(`${b.last_name}${b.first_name}`)))
     } catch (e) {
-      if (/does not exist|42P01/i.test(e.message || '')) setSetupNeeded(true)
+      // Missing tables surface as either "does not exist" (Postgres) or
+      // "Could not find the table ... in the schema cache" (PostgREST).
+      if (/does not exist|42P01|schema cache|PGRST205/i.test(e.message || '')) setSetupNeeded(true)
       else setError(e.message || String(e))
       setWorkflows([]); setCarrierRows([])
     }
@@ -121,6 +127,7 @@ export default function Releases() {
   return (
     <>
       <h1>Carrier Releases</h1>
+      {error && <div className="card" style={{ color: '#991b1b' }}>Error: {error}</div>}
 
       <div className="card">
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
