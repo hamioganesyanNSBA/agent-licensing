@@ -14,7 +14,7 @@ async function computeApptDiff(appointments) {
   let existing = []
   for (const c of carriers) {
     const rows = await fetchAll('carrier_appointments',
-      'agent_npn,first_name,last_name,carrier,plan_year,state,product_category,rts_status',
+      'id,agent_npn,first_name,last_name,carrier,plan_year,state,product_category,rts_status',
       { eq: { carrier: c } })
     existing = existing.concat(rows.filter(r => years.has(r.plan_year)))
   }
@@ -131,7 +131,7 @@ export default function Imports() {
         diff,
       }
       const total = counts.agents + counts.licenses + counts.appointments
-      await supabase.from('import_runs').insert({
+      const { data: runRow } = await supabase.from('import_runs').insert({
         source: importerKey,
         filename: file.name,
         row_count: total,
@@ -140,8 +140,8 @@ export default function Imports() {
           ? `+${diff.added.length} new, ${diff.gained.length} gained RTS, ${diff.lost.length} lost RTS, `
             + `${diff.missing.length} not in file, ${diff.unchanged} unchanged`
           : null,
-      })
-      setResult(counts)
+      }).select('id,notes').single()
+      setResult({ ...counts, runId: runRow?.id, runNotes: runRow?.notes })
     } catch (e) {
       console.error(e)
       setError(e.message || String(e))
@@ -167,6 +167,31 @@ export default function Imports() {
       setError(e.message || String(e))
     } finally {
       setSyncing(false)
+    }
+  }
+
+  async function removeMissing() {
+    const missing = result?.diff?.missing || []
+    if (!missing.length) return
+    if (!window.confirm(
+      `Delete ${missing.length} appointment row(s) that no longer appear in the carrier's report? `
+      + `They will disappear from the Appointments page, Coverage, and the Sunfire export. This cannot be undone.`)) return
+    setBusy(true); setError('')
+    try {
+      for (const c of chunk(missing.map(m => m.id).filter(Boolean), 200)) {
+        const { error } = await supabase.from('carrier_appointments').delete().in('id', c)
+        if (error) throw error
+      }
+      if (result.runId) {
+        await supabase.from('import_runs')
+          .update({ notes: `${result.runNotes || ''} — ${missing.length} stale row(s) removed` })
+          .eq('id', result.runId)
+      }
+      setResult(r => ({ ...r, diff: { ...r.diff, missing: [], missingRemoved: missing.length } }))
+    } catch (e) {
+      setError(e.message || String(e))
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -259,7 +284,18 @@ export default function Imports() {
             <ChangeSection title="Gained RTS (N → Y)" rows={result.diff.gained} color="#166534" open />
             <ChangeSection title="Lost RTS (Y → N)" rows={result.diff.lost} color="#991b1b" open />
             <ChangeSection title="New appointments (not in app before)" rows={result.diff.added} color="#14266b" />
-            <ChangeSection title="In app but missing from this file (left unchanged)" rows={result.diff.missing} color="#92400e" />
+            <ChangeSection title="In app but missing from this file" rows={result.diff.missing} color="#92400e" />
+            {result.diff.missing.length > 0 && (
+              <button className="btn btn-danger" style={{ marginTop: 4, padding: '6px 12px', fontSize: 13 }}
+                disabled={busy} onClick={removeMissing}>
+                Remove these {result.diff.missing.length} stale row(s) from the app
+              </button>
+            )}
+            {result.diff.missingRemoved > 0 && (
+              <div style={{ color: '#166534', fontSize: 13, marginTop: 4 }}>
+                🗑 {result.diff.missingRemoved} stale row(s) removed — Appointments, Coverage, and the Sunfire export now match this report.
+              </div>
+            )}
           </div>
         )}
       </div>
