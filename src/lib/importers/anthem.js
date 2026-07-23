@@ -10,6 +10,8 @@
 // Sunfire export. The agency-level row (NATIONAL SENIOR BENEFIT ADVISORS) is
 // skipped, and writing names that don't resolve to an active agent are skipped
 // and returned in `unmatched` (they're departed / non-Onyx agents).
+// Rows whose H_Parent_Name (col H) is BENEFIT PLANS OF AMERICA LLC are skipped
+// entirely — that's an old upline and those appointments are no longer valid.
 import { readCsv, clean } from '../parse.js'
 import { toStateCode } from '../states.js'
 import { fetchAll } from '../fetchAll.js'
@@ -22,6 +24,7 @@ export const meta = {
 }
 
 const AGENCY = 'NATIONAL SENIOR BENEFIT ADVISORS'
+const OLD_UPLINE = 'BENEFIT PLANS OF AMERICA LLC'   // col H — no longer valid
 const SUFFIX = new Set(['JR', 'SR', 'II', 'III', 'IV', 'V'])
 const norm = s => (s || '').toUpperCase().replace(/[.,'’]/g, '').replace(/-/g, ' ').replace(/\s+/g, ' ').trim()
 const tokens = s => norm(s).split(' ').filter(t => t && !SUFFIX.has(t))
@@ -70,6 +73,7 @@ export async function parseFile(file) {
     const name    = clean(r[3])         // D_Writing_Name
     if (!state || !writing || !name) continue
     if (name.toUpperCase() === AGENCY) continue
+    if ((clean(r[7]) || '').toUpperCase() === OLD_UPLINE) continue   // H_Parent_Name: old upline
     const npn = resolveNpn(name, idx)
     if (!npn) { unmatched.set(name, (unmatched.get(name) || 0) + 1); continue }
     const agent = npnMap.get(npn)
