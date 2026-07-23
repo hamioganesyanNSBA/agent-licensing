@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
-import { RELEASE_CARRIERS, computeProgress, isComplete, fmtTs } from '../lib/releases.js'
+import { RELEASE_CARRIERS, computeProgress, isComplete, fmtTs, autoConfirmRts } from '../lib/releases.js'
 import ProgressBar from '../components/ProgressBar.jsx'
 
 const STATUS_BADGE = {
@@ -26,6 +26,7 @@ export default function ReleaseDetail() {
   useEffect(() => { load() }, [id])
 
   async function load() {
+    await autoConfirmRts(Number(id))   // stamp steps already satisfied by our RTS data
     const { data: w } = await supabase.from('release_workflows').select('*').eq('id', id).single()
     const { data: cs } = await supabase.from('release_carriers').select('*').eq('workflow_id', id).order('carrier')
     setWf(w); setCarriers(cs || []); setNotes(w?.notes || '')
@@ -186,11 +187,11 @@ export default function ReleaseDetail() {
                     canUndo={!c.rts_confirmed_at}
                     onMark={() => setStep(c, 'approved_at', new Date().toISOString())}
                     onClear={() => setStep(c, 'approved_at', null)} />
-                  <StepCell ts={c.rts_confirmed_at}
+                  <StepCell ts={c.rts_confirmed_at} auto={c.rts_confirmed_auto}
                     canDo={!!c.approved_at} gate="Mark the contract as approved first"
                     canUndo
                     hint={rtsCarriers.has(c.carrier) && !c.rts_confirmed_at
-                      ? <div style={{ fontSize: 11, color: '#166534', marginTop: 4 }}>✓ already showing RTS in our reports</div>
+                      ? <div style={{ fontSize: 11, color: '#166534', marginTop: 4 }}>✓ in our RTS reports — will auto-confirm once approved</div>
                       : null}
                     onMark={() => setStep(c, 'rts_confirmed_at', new Date().toISOString())}
                     onClear={() => setStep(c, 'rts_confirmed_at', null)} />
@@ -262,10 +263,12 @@ function DocRow({ label, path, uploadedAt, busy, docUrl, onUpload }) {
   )
 }
 
-function StepCell({ ts, canDo, gate, canUndo, onMark, onClear, hint }) {
+function StepCell({ ts, auto, canDo, gate, canUndo, onMark, onClear, hint }) {
   if (ts) return (
     <td>
-      <span className="badge badge-y" title={canUndo ? 'Click ✕ to undo' : 'Undo later steps first'}>✓ {fmtTs(ts)}</span>
+      <span className="badge badge-y" title={canUndo ? 'Click ✕ to undo' : 'Undo later steps first'}>
+        ✓ {fmtTs(ts)}{auto ? ' · auto' : ''}
+      </span>
       {canUndo && (
         <button onClick={() => { if (window.confirm('Undo this step?')) onClear() }}
           style={{ border: 0, background: 'none', color: '#94a3b8', fontSize: 12, marginLeft: 6 }}

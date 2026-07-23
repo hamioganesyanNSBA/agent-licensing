@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useUser } from '@clerk/clerk-react'
 import { supabase } from '../lib/supabase.js'
 import { fetchAll } from '../lib/fetchAll.js'
-import { RELEASE_CARRIERS, computeProgress, fmtTs } from '../lib/releases.js'
+import { RELEASE_CARRIERS, computeProgress, fmtTs, autoConfirmRts } from '../lib/releases.js'
 import ProgressBar from '../components/ProgressBar.jsx'
 
 const STATUS_BADGE = {
@@ -33,6 +33,7 @@ export default function Releases() {
 
   async function load() {
     try {
+      await autoConfirmRts()   // stamp any steps satisfied by freshly imported RTS data
       const [wfs, rcs, ags] = await Promise.all([
         fetchAll('release_workflows', '*'),
         fetchAll('release_carriers', '*'),

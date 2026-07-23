@@ -24,8 +24,11 @@ create table if not exists release_carriers (
   sent_at          timestamptz,   -- release sent to the carrier from our end
   approved_at      timestamptz,   -- carrier approved the contract
   rts_confirmed_at timestamptz,   -- agent officially appears in our RTS reports
+  rts_confirmed_auto boolean not null default false,  -- stamped automatically from an RTS report import
   unique (workflow_id, carrier)
 );
+-- Safe to re-run if the table already existed without the auto flag:
+alter table release_carriers add column if not exists rts_confirmed_auto boolean not null default false;
 create index if not exists rc_workflow_idx on release_carriers(workflow_id);
 
 alter table release_workflows enable row level security;

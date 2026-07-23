@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useUser } from '@clerk/clerk-react'
 import { IMPORTERS, IMPORTER_LIST } from '../lib/importers/index.js'
 import { supabase } from '../lib/supabase.js'
+import { autoConfirmRts } from '../lib/releases.js'
 
 export default function Imports() {
   const { user } = useUser()
@@ -69,11 +70,16 @@ export default function Imports() {
         }
       }
 
+      // Fresh RTS data may satisfy open release workflows — auto-confirm them.
+      const auto = parsed.appointments?.length ? await autoConfirmRts() : { confirmed: 0, completed: 0 }
+
       const counts = {
         agents:       parsed.agents?.length       || 0,
         licenses:     parsed.licenses?.length     || 0,
         appointments: parsed.appointments?.length || 0,
         unmatched:    parsed.unmatched || null,
+        autoConfirmed: auto.confirmed,
+        autoCompleted: auto.completed,
       }
       const total = counts.agents + counts.licenses + counts.appointments
       await supabase.from('import_runs').insert({
@@ -177,6 +183,12 @@ export default function Imports() {
         {result && (
           <div style={{ color: '#166534' }}>
             Imported — agents: {result.agents}, licenses: {result.licenses}, appointments: {result.appointments}
+            {result.autoConfirmed > 0 && (
+              <div style={{ marginTop: 4, fontSize: 13 }}>
+                ⚡ Auto-confirmed {result.autoConfirmed} release step(s)
+                {result.autoCompleted > 0 ? ` — ${result.autoCompleted} release workflow(s) completed` : ''} based on this RTS data.
+              </div>
+            )}
             {result.unmatched?.length > 0 && (
               <div style={{ color: '#92400e', marginTop: 8, fontSize: 13 }}>
                 {result.unmatched.length} writing name(s) skipped — no matching active agent:
