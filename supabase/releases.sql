@@ -1,4 +1,5 @@
--- Release workflow tables + document storage. Run once in the Supabase SQL editor.
+-- Release workflow tables + document storage.
+-- Idempotent: safe to run (and re-run) as a whole in the Supabase SQL editor.
 
 create table if not exists release_workflows (
   id                          bigserial primary key,
@@ -27,14 +28,17 @@ create table if not exists release_carriers (
   rts_confirmed_auto boolean not null default false,  -- stamped automatically from an RTS report import
   unique (workflow_id, carrier)
 );
--- Safe to re-run if the table already existed without the auto flag:
-alter table release_carriers add column if not exists rts_confirmed_auto boolean not null default false;
 create index if not exists rc_workflow_idx on release_carriers(workflow_id);
+
+-- In case the table pre-dates the auto flag:
+alter table release_carriers add column if not exists rts_confirmed_auto boolean not null default false;
 
 alter table release_workflows enable row level security;
 alter table release_carriers  enable row level security;
 
 -- Permissive policies matching the rest of the schema (admin-only app gated by Clerk).
+drop policy if exists "anon all release_workflows" on release_workflows;
+drop policy if exists "anon all release_carriers"  on release_carriers;
 create policy "anon all release_workflows" on release_workflows for all using (true) with check (true);
 create policy "anon all release_carriers"  on release_carriers  for all using (true) with check (true);
 
@@ -44,5 +48,6 @@ insert into storage.buckets (id, name, public)
   values ('releases', 'releases', true)
   on conflict (id) do nothing;
 
+drop policy if exists "anon manage release docs" on storage.objects;
 create policy "anon manage release docs" on storage.objects
   for all using (bucket_id = 'releases') with check (bucket_id = 'releases');
