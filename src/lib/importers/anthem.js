@@ -58,7 +58,7 @@ function resolveNpn(name, { byKey, byLast }) {
   return null
 }
 
-export async function parseFile(file) {
+export async function parseFile(file, opts = {}) {
   const rows = await readCsv(file)
   const agents = await fetchAll('agents', 'npn,first_name,last_name')
   const idx = buildIndex(agents)
@@ -83,7 +83,7 @@ export async function parseFile(file) {
       last_name:  agent?.last_name || null,
       email: null,
       carrier: 'Anthem',
-      plan_year: 2026,
+      plan_year: opts.planYear || 2026,
       writing_number: writing,
       state,
       product_category: 'MA',

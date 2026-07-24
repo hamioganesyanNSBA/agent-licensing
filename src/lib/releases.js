@@ -1,5 +1,5 @@
 // Shared helpers for the carrier release workflow.
-import { KNOWN_CARRIERS } from './coverageModel.js'
+import { KNOWN_CARRIERS, activePlanYear } from './coverageModel.js'
 import { supabase } from './supabase.js'
 
 export const RELEASE_CARRIERS = KNOWN_CARRIERS   // all carriers we work with
@@ -49,8 +49,8 @@ export async function autoConfirmRts(workflowId = null) {
   const npns = [...new Set(wfs.map(w => w.agent_npn))]
   const { data: appts } = await supabase.from('carrier_appointments')
     .select('agent_npn,carrier,plan_year').eq('rts_status', 'Y').in('agent_npn', npns).limit(10000)
-  const latest = Math.max(...(appts || []).map(a => a.plan_year || 0), 0)
-  const rtsSet = new Set((appts || []).filter(a => a.plan_year === latest)
+  const year = activePlanYear([...new Set((appts || []).map(a => a.plan_year))])
+  const rtsSet = new Set((appts || []).filter(a => a.plan_year === year)
     .map(a => `${a.agent_npn}|${a.carrier}`))
 
   const wfById = new Map(wfs.map(w => [w.id, w]))

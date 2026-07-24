@@ -15,6 +15,7 @@ export default function Coverage() {
   const [q, setQ] = useState('')
   const [gapsOnly, setGapsOnly] = useState(true)
   const [expanded, setExpanded] = useState(null)   // npn of the expanded row
+  const [yearOverride, setYearOverride] = useState(null)   // null = automatic
 
   useEffect(() => {
     fetchAll('licenses', 'npn,state,status,expiration_date').then(setLicenses)
@@ -24,8 +25,8 @@ export default function Coverage() {
 
   const model = useMemo(() => {
     if (!licenses || !appointments || !agents) return null
-    return buildCoverageModel(licenses, appointments, agents)
-  }, [licenses, appointments, agents])
+    return buildCoverageModel(licenses, appointments, agents, yearOverride)
+  }, [licenses, appointments, agents, yearOverride])
 
   if (!model) return <><h1>Coverage</h1><div className="card">Loading…</div></>
 
@@ -49,7 +50,15 @@ export default function Coverage() {
         <div className="card"><div className="stat">{model.rows.length}</div><div className="stat-label">Active agents</div></div>
         <div className="card"><div className="stat" style={{ color: '#166534' }}>{model.fullyCovered}</div><div className="stat-label">Fully covered</div></div>
         <div className="card"><div className="stat" style={{ color: '#92400e' }}>{model.rows.length - model.fullyCovered}</div><div className="stat-label">With gaps</div></div>
-        <div className="card"><div className="stat">{model.planYear}</div><div className="stat-label">Plan year</div></div>
+        <div className="card">
+          {model.years.length > 1 ? (
+            <select value={model.planYear} onChange={e => setYearOverride(parseInt(e.target.value, 10))}
+                    style={{ fontSize: 24, fontWeight: 700, color: 'var(--nsba-navy)', border: 0, padding: 0, background: 'none' }}>
+              {model.years.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          ) : <div className="stat">{model.planYear}</div>}
+          <div className="stat-label">Plan year</div>
+        </div>
       </div>
 
       <div className="card">

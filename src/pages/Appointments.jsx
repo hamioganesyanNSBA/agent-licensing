@@ -76,6 +76,7 @@ export default function Appointments() {
           <select value={year} onChange={e => setYear(parseInt(e.target.value, 10))}>
             <option value={2025}>2025</option>
             <option value={2026}>2026</option>
+            <option value={2027}>2027</option>
           </select>
           <input placeholder="Agent name" value={name} onChange={e => setName(e.target.value)} style={{ width: 180 }} />
           <select value={rts} onChange={e => setRts(e.target.value)}>

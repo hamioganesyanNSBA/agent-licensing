@@ -12,7 +12,7 @@ export const meta = {
 
 const STATE_RE = /^[A-Z]{2}$/
 
-export async function parseFile(file) {
+export async function parseFile(file, opts = {}) {
   const wb = await readWorkbook(file)
   const ws = wb.Sheets['L&A']
   if (!ws) throw new Error('UHC file missing "L&A" sheet')
@@ -46,7 +46,7 @@ export async function parseFile(file) {
           last_name:  last  || null,
           email:      null,
           carrier:    'UnitedHealthcare',
-          plan_year:  2026,
+          plan_year:  opts.planYear || 2026,
           writing_number: agentId || npn,
           state,
           product_category: product,

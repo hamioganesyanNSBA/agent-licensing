@@ -7,7 +7,25 @@ import { statesInFootprint } from './carrierFootprints.js'
 export const KNOWN_CARRIERS = ['Aetna', 'Anthem', 'Cigna', 'Devoted', 'SCAN', 'UnitedHealthcare', 'Wellcare', 'Zing']
 export const CARRIER_SHORT = { UnitedHealthcare: 'UHC' }
 
-export function buildCoverageModel(licenses, appointments, agents) {
+// The plan year we're currently selling: the calendar year, rolling to next
+// year on Oct 1 when AEP prep makes next-year RTS the thing that matters.
+export function defaultPlanYear() {
+  const d = new Date()
+  return d.getMonth() >= 9 ? d.getFullYear() + 1 : d.getFullYear()
+}
+
+// Pick the working plan year from the years present in the data: the largest
+// year that isn't in the future relative to defaultPlanYear(). This keeps a
+// freshly imported next-year report (e.g. 2027 certs uploaded in July 2026)
+// from hijacking dashboards that should still reflect the current year.
+export function activePlanYear(years) {
+  const target = defaultPlanYear()
+  const usable = years.filter(y => y && y <= target)
+  if (usable.length) return Math.max(...usable)
+  return years.length ? Math.max(...years) : target
+}
+
+export function buildCoverageModel(licenses, appointments, agents, planYearOverride = null) {
   const today = new Date().toISOString().slice(0, 10)
 
   // Active licensed states per NPN (usable license = Active and not expired).
@@ -19,8 +37,9 @@ export function buildCoverageModel(licenses, appointments, agents) {
     licensedByNpn.get(l.npn).add(l.state)
   }
 
-  // Latest plan year in the data drives the comparison.
-  const planYear = Math.max(...appointments.map(a => a.plan_year || 0), 0)
+  // The working plan year drives the comparison (overridable from the UI).
+  const planYear = planYearOverride
+    ?? activePlanYear([...new Set(appointments.map(a => a.plan_year))])
 
   // RTS=Y states per NPN x carrier for that plan year.
   const rtsByNpn = new Map()
@@ -58,7 +77,8 @@ export function buildCoverageModel(licenses, appointments, agents) {
   }).sort((a, b) => a.name.localeCompare(b.name))
 
   const perCarrierMissing = carriers.map((c, i) => rows.filter(r => r.cells[i].level === 'none').length)
-  return { planYear, carriers, rows, perCarrierMissing,
+  const years = [...new Set(appointments.map(a => a.plan_year))].filter(Boolean).sort()
+  return { planYear, years, carriers, rows, perCarrierMissing,
     byNpn: new Map(rows.map(r => [r.npn, r])),
     fullyCovered: rows.filter(r => r.gapCount === 0).length }
 }

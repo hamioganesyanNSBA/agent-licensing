@@ -9,6 +9,8 @@ export const meta = {
   target: 'carrier_appointments',
 }
 
+// NOTE: Devoted's file carries the plan year per row, so it is used as-is —
+// the Imports page's plan-year selector does not apply to this importer.
 export async function parseFile(file) {
   const rows = await readCsv(file)
   const objects = rowsToObjects(rows, 0)

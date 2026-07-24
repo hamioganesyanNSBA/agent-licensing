@@ -20,7 +20,7 @@ const PRODUCT_MAP = {
   DSNP:  'DSNP',
 }
 
-export async function parseFile(file) {
+export async function parseFile(file, opts = {}) {
   const wb = await readWorkbook(file)
   const ws = wb.Sheets['DETAIL']
   if (!ws) throw new Error('Aetna file missing "DETAIL" sheet')
@@ -42,7 +42,7 @@ export async function parseFile(file) {
       last_name:  last  || null,
       email:      clean(r['CONT_EMAIL']),
       carrier:    'Aetna',
-      plan_year:  2026,
+      plan_year:  opts.planYear || 2026,
       writing_number: npn,   // Sunfire uses the NPN as Aetna's writing number (not BROKER_ID)
       state,
       product_category: product,

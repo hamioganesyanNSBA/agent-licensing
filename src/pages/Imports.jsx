@@ -52,6 +52,7 @@ function groupByAgent(rows) {
 export default function Imports() {
   const { user } = useUser()
   const [importerKey, setImporterKey] = useState(IMPORTER_LIST[0]?.key || '')
+  const [planYear, setPlanYear] = useState(2026)
   const [file, setFile] = useState(null)
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState(null)
@@ -79,7 +80,7 @@ export default function Imports() {
     if (!file || !importer) return
     setBusy(true); setError(''); setResult(null)
     try {
-      const parsed = await importer.parseFile(file)
+      const parsed = await importer.parseFile(file, { planYear })
 
       if (parsed.agents?.length) {
         const chunks = chunk(parsed.agents, 500)
@@ -229,10 +230,22 @@ export default function Imports() {
       <div className="card" style={{ marginTop: 24 }}>
         <h2>Import a file</h2>
         <p>Upload a source file. Existing rows will be updated (upsert).</p>
+        <p style={{ color: '#92400e', fontSize: 13 }}>
+          ⚠ Set the plan year to match the report you&apos;re uploading — a next-year cert report
+          imported under the current year overwrites this year&apos;s RTS data. (Devoted files carry
+          their own plan year and ignore this selector.)
+        </p>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>
           <select value={importerKey} onChange={e => { setImporterKey(e.target.value); setFile(null); setResult(null) }}>
             {IMPORTER_LIST.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
           </select>
+          <label style={{ fontSize: 13, color: '#475569' }}>Plan year:&nbsp;
+            <select value={planYear} onChange={e => setPlanYear(parseInt(e.target.value, 10))}>
+              <option value={2025}>2025</option>
+              <option value={2026}>2026</option>
+              <option value={2027}>2027</option>
+            </select>
+          </label>
           <input
             type="file"
             accept={importer.meta.accept}

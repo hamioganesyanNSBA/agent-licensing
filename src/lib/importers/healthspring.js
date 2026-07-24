@@ -9,4 +9,4 @@ export const meta = {
   target: 'carrier_appointments',
 }
 
-export const parseFile = (file) => parseProStat(file, 'Cigna')
+export const parseFile = (file, opts) => parseProStat(file, 'Cigna', opts)

@@ -11,7 +11,7 @@
 import { readCsv, clean } from '../parse.js'
 import { toStateCode } from '../states.js'
 
-export async function parseProStat(file, carrier) {
+export async function parseProStat(file, carrier, opts = {}) {
   const rows = await readCsv(file)
   const out = []
   for (let i = 1; i < rows.length; i++) {   // row 0 = header
@@ -28,7 +28,7 @@ export async function parseProStat(file, carrier) {
       last_name:  clean(r[1]),
       email:      null,
       carrier,
-      plan_year:  2026,
+      plan_year:  opts.planYear || 2026,
       writing_number: npn,   // these carriers use the NPN as the writing number
       state,
       product_category: 'MA',

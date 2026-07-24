@@ -29,14 +29,14 @@ const PRODUCT_MAP = {
   'PDP':       'PDP',
 }
 
-function baseRow(r, npn, state) {
+function baseRow(r, npn, state, planYear) {
   return {
     agent_npn:  npn,
     first_name: clean(r['First Name']),
     last_name:  clean(r['Last Name']),
     email:      null,
     carrier:    'Wellcare',
-    plan_year:  2026,
+    plan_year:  planYear || 2026,
     writing_number: npn,
     state,
     product_category: 'MA',
@@ -44,7 +44,7 @@ function baseRow(r, npn, state) {
   }
 }
 
-export async function parseFile(file) {
+export async function parseFile(file, opts = {}) {
   const rows = await readCsv(file)
   const objects = rowsToObjects(rows, 0)
   const headers = rows[0].map(h => String(h ?? '').trim())
@@ -61,7 +61,7 @@ export async function parseFile(file) {
       const active = (clean(r['Status']) || '').toLowerCase() === 'active'
       const key = `${npn}|${state}`
       let row = byKey.get(key)
-      if (!row) { row = baseRow(r, npn, state); byKey.set(key, row) }
+      if (!row) { row = baseRow(r, npn, state, opts.planYear); byKey.set(key, row) }
       if (active) row.rts_status = 'Y'
     }
     return { appointments: [...byKey.values()] }
@@ -77,7 +77,7 @@ export async function parseFile(file) {
     const status = (clean(r['Appointment Status']) || '').toLowerCase()
     const loa = clean(r['LOA Product']) || ''
     out.push({
-      ...baseRow(r, npn, state),
+      ...baseRow(r, npn, state, opts.planYear),
       product_category: PRODUCT_MAP[loa] || loa,
       rts_status: status === 'appointed' ? 'Y' : 'N',
     })

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { RELEASE_CARRIERS, computeProgress, isComplete, fmtTs, autoConfirmRts } from '../lib/releases.js'
+import { activePlanYear } from '../lib/coverageModel.js'
 import ProgressBar from '../components/ProgressBar.jsx'
 
 const STATUS_BADGE = {
@@ -34,8 +35,8 @@ export default function ReleaseDetail() {
       // RTS hint: does the agent already show RTS=Y in our imported reports?
       const { data: appts } = await supabase.from('carrier_appointments')
         .select('carrier,plan_year').eq('agent_npn', w.agent_npn).eq('rts_status', 'Y').limit(5000)
-      const latest = Math.max(...(appts || []).map(a => a.plan_year || 0), 0)
-      setRtsCarriers(new Set((appts || []).filter(a => a.plan_year === latest).map(a => a.carrier)))
+      const year = activePlanYear([...new Set((appts || []).map(a => a.plan_year))])
+      setRtsCarriers(new Set((appts || []).filter(a => a.plan_year === year).map(a => a.carrier)))
     }
   }
 
