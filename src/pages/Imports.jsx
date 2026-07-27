@@ -40,12 +40,13 @@ function groupByAgent(rows) {
   for (const r of rows) {
     if (!m.has(r.agent_npn)) {
       const name = `${r.last_name || ''}, ${r.first_name || ''}`.replace(/^, |, $/g, '')
-      m.set(r.agent_npn, { npn: r.agent_npn, name: name || r.agent_npn, states: new Set() })
+      m.set(r.agent_npn, { npn: r.agent_npn, name: name || r.agent_npn, yStates: new Set(), nStates: new Set() })
     }
-    m.get(r.agent_npn).states.add(r.state)
+    const g = m.get(r.agent_npn)
+    ;(r.rts_status === 'Y' ? g.yStates : g.nStates).add(r.state)
   }
   return [...m.values()]
-    .map(g => ({ ...g, states: [...g.states].sort() }))
+    .map(g => ({ ...g, yStates: [...g.yStates].sort(), nStates: [...g.nStates].sort() }))
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
@@ -316,7 +317,14 @@ function ChangeSection({ title, rows, color, open }) {
           {groups.map(g => (
             <div key={g.npn} style={{ padding: '3px 0', borderBottom: '1px solid #f1f5f9' }}>
               <strong>{g.name}</strong> <span style={{ color: '#94a3b8' }}>({g.npn})</span>
-              <span style={{ color: '#64748b' }}> — {g.states.join(', ')}</span>
+              {g.yStates.length > 0 && (
+                <span style={{ color: '#166534' }}> — RTS Y: {g.yStates.join(', ')}</span>
+              )}
+              {g.nStates.length > 0 && (
+                <span style={{ color: '#94a3b8' }} title={g.nStates.join(', ')}>
+                  {' '}· not ready (N) in {g.nStates.length} state{g.nStates.length === 1 ? '' : 's'}
+                </span>
+              )}
             </div>
           ))}
         </div>
