@@ -16,6 +16,7 @@ export default function Coverage() {
   const [gapsOnly, setGapsOnly] = useState(true)
   const [expanded, setExpanded] = useState(null)   // npn of the expanded row
   const [yearOverride, setYearOverride] = useState(null)   // null = automatic
+  const [selCarriers, setSelCarriers] = useState(new Set())  // empty = all carriers
 
   useEffect(() => {
     fetchAll('licenses', 'npn,state,status,expiration_date').then(setLicenses)
@@ -30,7 +31,35 @@ export default function Coverage() {
 
   if (!model) return <><h1>Coverage</h1><div className="card">Loading…</div></>
 
-  const filtered = model.rows.filter(r => {
+  // Carrier filter: restrict columns (and gap math) to the selected carriers.
+  const activeCarriers = selCarriers.size
+    ? model.carriers.filter(c => selCarriers.has(c))
+    : model.carriers
+  const carrierIdx = new Map(model.carriers.map((c, i) => [c, i]))
+  const perCarrierMissing = activeCarriers.map(c => model.perCarrierMissing[carrierIdx.get(c)])
+  const rowsView = model.rows.map(r => {
+    const cells = activeCarriers.map(c => r.cells[carrierIdx.get(c)])
+    const gapCount = cells.filter(x => x.level === 'none' || x.level === 'partial').length
+    return { ...r, cells, gapCount }
+  })
+  const fullyCovered = rowsView.filter(r => r.gapCount === 0).length
+
+  function toggleCarrier(c) {
+    setSelCarriers(prev => {
+      const next = new Set(prev)
+      next.has(c) ? next.delete(c) : next.add(c)
+      return next
+    })
+  }
+
+  const chipStyle = (active) => ({
+    padding: '4px 12px', borderRadius: 999, fontSize: 13, fontWeight: 600,
+    border: '1px solid ' + (active ? 'var(--nsba-navy)' : '#cbd5e1'),
+    background: active ? 'var(--nsba-navy)' : '#fff',
+    color: active ? '#fff' : '#475569',
+  })
+
+  const filtered = rowsView.filter(r => {
     if (gapsOnly && r.gapCount === 0) return false
     if (!q) return true
     const s = q.toLowerCase()
@@ -48,8 +77,8 @@ export default function Coverage() {
       <h1>Carrier &amp; State Coverage</h1>
       <div className="grid grid-4" style={{ marginBottom: 16 }}>
         <div className="card"><div className="stat">{model.rows.length}</div><div className="stat-label">Active agents</div></div>
-        <div className="card"><div className="stat" style={{ color: '#166534' }}>{model.fullyCovered}</div><div className="stat-label">Fully covered</div></div>
-        <div className="card"><div className="stat" style={{ color: '#92400e' }}>{model.rows.length - model.fullyCovered}</div><div className="stat-label">With gaps</div></div>
+        <div className="card"><div className="stat" style={{ color: '#166534' }}>{fullyCovered}</div><div className="stat-label">Fully covered</div></div>
+        <div className="card"><div className="stat" style={{ color: '#92400e' }}>{rowsView.length - fullyCovered}</div><div className="stat-label">With gaps</div></div>
         <div className="card">
           {model.years.length > 1 ? (
             <select value={model.planYear} onChange={e => setYearOverride(parseInt(e.target.value, 10))}
@@ -62,6 +91,16 @@ export default function Coverage() {
       </div>
 
       <div className="card">
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
+          <button style={chipStyle(selCarriers.size === 0)} onClick={() => setSelCarriers(new Set())}>
+            All carriers
+          </button>
+          {model.carriers.map(c => (
+            <button key={c} style={chipStyle(selCarriers.has(c))} onClick={() => toggleCarrier(c)}>
+              {SHORT[c] || c}
+            </button>
+          ))}
+        </div>
         <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 12 }}>
           <input placeholder="Search agent or NPN…" value={q} onChange={e => setQ(e.target.value)} style={{ width: 260 }} />
           <label style={{ fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -73,17 +112,17 @@ export default function Coverage() {
             · grey — = carrier has no plans in the agent&apos;s states · click a cell for missing states
           </span>
         </div>
-        <div style={{ overflowX: 'auto' }}>
+        <div className="table-scroll">
           <table>
             <thead>
               <tr>
                 <th>Agent</th>
                 <th style={{ textAlign: 'center' }}>Lic. states</th>
-                {model.carriers.map((c, i) => (
+                {activeCarriers.map((c, i) => (
                   <th key={c} style={{ textAlign: 'center' }}>
                     {SHORT[c] || c}
-                    <div style={{ fontWeight: 400, fontSize: 11, color: model.perCarrierMissing[i] ? '#991b1b' : '#64748b' }}>
-                      {model.perCarrierMissing[i]} missing
+                    <div style={{ fontWeight: 400, fontSize: 11, color: perCarrierMissing[i] ? '#991b1b' : '#64748b' }}>
+                      {perCarrierMissing[i]} missing
                     </div>
                   </th>
                 ))}
@@ -93,7 +132,7 @@ export default function Coverage() {
               {filtered.map(r => (
                 <FragmentRow key={r.npn} row={r} expanded={expanded === r.npn}
                   onToggle={() => setExpanded(expanded === r.npn ? null : r.npn)}
-                  cellStyle={cellStyle} carrierCount={model.carriers.length} />
+                  cellStyle={cellStyle} carrierCount={activeCarriers.length} />
               ))}
             </tbody>
           </table>

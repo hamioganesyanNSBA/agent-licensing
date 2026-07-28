@@ -82,6 +82,17 @@ th {
 }
 tr:hover td { background: #f6f9fd; }
 
+/* Scrollable table with a sticky header row (Coverage matrix). */
+.table-scroll { overflow: auto; max-height: 68vh; }
+.table-scroll thead th {
+  position: sticky;
+  top: 0;
+  background: var(--nsba-blue-light);
+  z-index: 5;
+  border-bottom: 0;
+  box-shadow: 0 2px 0 var(--line);
+}
+
 input, select {
   padding: 8px 12px;
   border: 1px solid #cbd5e1;
