@@ -48,6 +48,14 @@ export async function parseFile(file, opts = {}) {
   const rows = await readCsv(file)
   const objects = rowsToObjects(rows, 0)
   const headers = rows[0].map(h => String(h ?? '').trim())
+  // Content fingerprint: ProStat reports (Healthspring/SCAN/Zing) share the
+  // First/Last/NPN columns but carry LOB + State Status — reject those here.
+  if (headers.includes('LOB') && headers.includes('State Status')) {
+    throw new Error('This looks like a Healthspring/SCAN/Zing (ProStat) report, not a Wellcare file. Nothing was imported.')
+  }
+  if (!headers.includes('NPN') || !(headers.includes('Status') || headers.includes('Appointment Status'))) {
+    throw new Error('Unrecognized Wellcare file — expected NPN and Status columns. Nothing was imported.')
+  }
   const isLicenseFormat = headers.includes('Status') && !headers.includes('Appointment Status')
 
   if (isLicenseFormat) {

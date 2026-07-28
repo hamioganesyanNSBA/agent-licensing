@@ -81,7 +81,22 @@ export default function Imports() {
     if (!file || !importer) return
     setBusy(true); setError(''); setResult(null)
     try {
+      // Guard 1: filename says it's a different carrier's report.
+      const nameMatches = Object.keys(FILE_HINTS).filter(k => FILE_HINTS[k].test(file.name))
+      if (nameMatches.length && !nameMatches.includes(importerKey)) {
+        const labels = nameMatches.map(k => IMPORTERS[k]?.meta.label || k).join(' / ')
+        throw new Error(
+          `"${file.name}" looks like a ${labels} file, but "${importer.meta.label}" is selected. `
+          + `Nothing was imported — pick the matching importer (or rename the file if this is intentional).`)
+      }
+
       const parsed = await importer.parseFile(file, { planYear })
+
+      // Guard 2: importer recognized nothing — wrong file for this importer.
+      const totalParsed = (parsed.agents?.length || 0) + (parsed.licenses?.length || 0) + (parsed.appointments?.length || 0)
+      if (!totalParsed) {
+        throw new Error('No rows recognized in this file — nothing was imported. Double-check that the right importer is selected.')
+      }
 
       if (parsed.agents?.length) {
         const chunks = chunk(parsed.agents, 500)
@@ -331,6 +346,19 @@ function ChangeSection({ title, rows, color, open }) {
       )}
     </details>
   )
+}
+
+// Filename fingerprints per importer — used to catch "right file, wrong
+// dropdown" mistakes before anything touches the database.
+const FILE_HINTS = {
+  aetna:        /aetna/i,
+  uhc:          /uhc|united\s?health/i,
+  devoted:      /devoted/i,
+  wellcare:     /wellcare|centene/i,
+  healthspring: /health\s?spring|cigna/i,
+  scan:         /scan(?!ned)/i,
+  zing:         /zing/i,
+  anthem:       /anthem/i,
 }
 
 function chunk(arr, size) {

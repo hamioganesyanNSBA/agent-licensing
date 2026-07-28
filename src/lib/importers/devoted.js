@@ -13,6 +13,11 @@ export const meta = {
 // the Imports page's plan-year selector does not apply to this importer.
 export async function parseFile(file) {
   const rows = await readCsv(file)
+  // Content fingerprint: Devoted's export has distinctive column names.
+  const hdr = (rows[0] || []).map(h => String(h ?? '').trim())
+  if (!hdr.includes('Sales Agent Info Sales Agent Npn')) {
+    throw new Error('This doesn\'t look like a Devoted Health report — expected the "Sales Agent Info ..." columns. Nothing was imported.')
+  }
   const objects = rowsToObjects(rows, 0)
   const out = []
   for (const r of objects) {

@@ -13,6 +13,22 @@ import { toStateCode } from '../states.js'
 
 export async function parseProStat(file, carrier, opts = {}) {
   const rows = await readCsv(file)
+
+  // Content fingerprint: reject files that aren't ProStat reports, and use the
+  // "AEP Status" column (present only in Zing exports) to catch a Zing file
+  // uploaded as SCAN/Healthspring or vice versa.
+  const headers = (rows[0] || []).map(h => String(h ?? '').trim())
+  if (headers[4] !== 'NPN' || headers[7] !== 'LOB' || headers[9] !== 'State Status') {
+    throw new Error(`This doesn't look like a ${carrier} appointment report — expected the ProStat columns (NPN / LOB / State Status). Nothing was imported.`)
+  }
+  const hasAep = headers.includes('AEP Status')
+  if (carrier === 'Zing' && !hasAep) {
+    throw new Error('This file has no "AEP Status" column, which Zing reports include — it looks like a SCAN or Healthspring file. Nothing was imported.')
+  }
+  if (carrier !== 'Zing' && hasAep) {
+    throw new Error(`This file has an "AEP Status" column, which only Zing reports have — it looks like a Zing file, not ${carrier}. Nothing was imported.`)
+  }
+
   const out = []
   for (let i = 1; i < rows.length; i++) {   // row 0 = header
     const r = rows[i]

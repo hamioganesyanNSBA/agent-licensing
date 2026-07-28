@@ -60,6 +60,11 @@ function resolveNpn(name, { byKey, byLast }) {
 
 export async function parseFile(file, opts = {}) {
   const rows = await readCsv(file)
+  // Content fingerprint: the Anthem hierarchy export has lettered columns.
+  const hdr = (rows[0] || []).map(h => String(h ?? '').trim())
+  if (hdr[0] !== 'A_State' || hdr[2] !== 'C_Writing_Etin') {
+    throw new Error('This doesn\'t look like the Anthem RTS report — expected A_State / C_Writing_Etin columns. Nothing was imported.')
+  }
   const agents = await fetchAll('agents', 'npn,first_name,last_name')
   const idx = buildIndex(agents)
   const npnMap = new Map(agents.map(a => [a.npn, a]))
