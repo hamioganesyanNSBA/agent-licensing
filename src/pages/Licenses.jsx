@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { supabase } from '../lib/supabase.js'
+import { fetchAll } from '../lib/fetchAll.js'
 import Pagination from '../components/Pagination.jsx'
 
 const PER_PAGE = 20
@@ -26,23 +26,13 @@ export default function Licenses() {
   const [sort, setSort] = useState({ key: 'expiration_date', dir: 'asc' })
   const [page, setPage] = useState(1)
 
-  useEffect(() => { load() }, [state, status, expiringDays])
+  // Load the whole table once (paginated past Supabase's 1000-row cap);
+  // all filtering happens client-side so nothing is ever truncated.
+  useEffect(() => {
+    fetchAll('licenses', 'npn,licensee_name,state,license_type,loa,license_number,status,expiration_date')
+      .then(setRows)
+  }, [])
   useEffect(() => { setPage(1) }, [q, state, status, expiringDays, sort])
-
-  async function load() {
-    let query = supabase.from('licenses')
-      .select('npn,licensee_name,state,license_type,loa,license_number,status,expiration_date')
-      .limit(5000)
-    if (state)  query = query.eq('state', state)
-    if (status) query = query.eq('status', status)
-    if (expiringDays) {
-      const today = new Date().toISOString().slice(0, 10)
-      const future = new Date(Date.now() + parseInt(expiringDays, 10) * 86400000).toISOString().slice(0, 10)
-      query = query.gte('expiration_date', today).lte('expiration_date', future)
-    }
-    const { data } = await query
-    setRows(data || [])
-  }
 
   function toggleSort(key) {
     setSort(s => s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' })
@@ -50,6 +40,13 @@ export default function Licenses() {
 
   const visible = useMemo(() => {
     let out = rows
+    if (state)  out = out.filter(r => r.state === state)
+    if (status) out = out.filter(r => r.status === status)
+    if (expiringDays) {
+      const today = new Date().toISOString().slice(0, 10)
+      const future = new Date(Date.now() + parseInt(expiringDays, 10) * 86400000).toISOString().slice(0, 10)
+      out = out.filter(r => r.expiration_date && r.expiration_date >= today && r.expiration_date <= future)
+    }
     if (q) {
       const s = q.toLowerCase()
       out = out.filter(r =>
@@ -64,7 +61,7 @@ export default function Licenses() {
       if (bv == null) return -1
       return String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: 'base' }) * mul
     })
-  }, [rows, q, sort])
+  }, [rows, q, state, status, expiringDays, sort])
 
   const slice = visible.slice((page - 1) * PER_PAGE, page * PER_PAGE)
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
+import { fetchAll } from '../lib/fetchAll.js'
 import { RELEASE_CARRIERS, computeProgress, isComplete, fmtTs, autoConfirmRts } from '../lib/releases.js'
 import { activePlanYear } from '../lib/coverageModel.js'
 import ProgressBar from '../components/ProgressBar.jsx'
@@ -33,8 +34,8 @@ export default function ReleaseDetail() {
     setWf(w); setCarriers(cs || []); setNotes(w?.notes || '')
     if (w) {
       // RTS hint: does the agent already show RTS=Y in our imported reports?
-      const { data: appts } = await supabase.from('carrier_appointments')
-        .select('carrier,plan_year').eq('agent_npn', w.agent_npn).eq('rts_status', 'Y').limit(5000)
+      const appts = await fetchAll('carrier_appointments', 'carrier,plan_year',
+        { eq: { agent_npn: w.agent_npn, rts_status: 'Y' } })
       const year = activePlanYear([...new Set((appts || []).map(a => a.plan_year))])
       setRtsCarriers(new Set((appts || []).filter(a => a.plan_year === year).map(a => a.carrier)))
     }

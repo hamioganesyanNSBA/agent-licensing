@@ -1,6 +1,7 @@
 // Shared helpers for the carrier release workflow.
 import { KNOWN_CARRIERS, activePlanYear } from './coverageModel.js'
 import { supabase } from './supabase.js'
+import { fetchAll } from './fetchAll.js'
 
 export const RELEASE_CARRIERS = KNOWN_CARRIERS   // all carriers we work with
 
@@ -46,9 +47,15 @@ export async function autoConfirmRts(workflowId = null) {
   const eligible = (carriers || []).filter(c => c.approved_at && !c.rts_confirmed_at)
   if (!eligible.length) return { confirmed: 0, completed: 0 }
 
+  // Per-agent paginated fetches — a single .in() query gets clamped to
+  // Supabase's 1000-row cap and could miss RTS rows.
   const npns = [...new Set(wfs.map(w => w.agent_npn))]
-  const { data: appts } = await supabase.from('carrier_appointments')
-    .select('agent_npn,carrier,plan_year').eq('rts_status', 'Y').in('agent_npn', npns).limit(10000)
+  let appts = []
+  for (const npn of npns) {
+    const rows = await fetchAll('carrier_appointments', 'agent_npn,carrier,plan_year',
+      { eq: { agent_npn: npn, rts_status: 'Y' } })
+    appts = appts.concat(rows)
+  }
   const year = activePlanYear([...new Set((appts || []).map(a => a.plan_year))])
   const rtsSet = new Set((appts || []).filter(a => a.plan_year === year)
     .map(a => `${a.agent_npn}|${a.carrier}`))

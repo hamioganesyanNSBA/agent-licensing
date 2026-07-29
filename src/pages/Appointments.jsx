@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase.js'
+import { useEffect, useMemo, useState } from 'react'
+import { fetchAll } from '../lib/fetchAll.js'
 import { useLicensedNpns } from '../lib/useLicensedNpns.js'
 import { Th, useSortState, sortCompare } from '../components/SortHeader.jsx'
 import Pagination from '../components/Pagination.jsx'
@@ -27,33 +27,31 @@ export default function Appointments() {
   const [page, setPage] = useState(1)
   const licensedNpns = useLicensedNpns()
 
+  // Load everything once (paginated past Supabase's 1000-row cap); filters run
+  // client-side so results are never silently truncated.
   useEffect(() => {
-    if (!licensedNpns) return
-    const t = setTimeout(load, 250)
-    return () => clearTimeout(t)
-  }, [carrier, state, year, rts, name, licensedNpns])
+    fetchAll('carrier_appointments',
+      'agent_npn,first_name,last_name,carrier,plan_year,state,product_category,rts_status')
+      .then(setRows)
+  }, [])
 
   useEffect(() => { setPage(1) }, [carrier, state, year, rts, name, sort])
 
-  async function load() {
-    let q = supabase.from('carrier_appointments')
-      .select('agent_npn,first_name,last_name,carrier,plan_year,state,product_category,rts_status')
-      .order('last_name')
-      .limit(5000)
-    if (carrier) q = q.eq('carrier', carrier)
-    if (state)   q = q.eq('state', state)
-    if (year)    q = q.eq('plan_year', year)
-    if (rts)     q = q.eq('rts_status', rts)
+  const sorted = useMemo(() => {
+    if (!licensedNpns) return []
+    let out = rows.filter(r => licensedNpns.has(r.agent_npn))
+    if (carrier) out = out.filter(r => r.carrier === carrier)
+    if (state)   out = out.filter(r => r.state === state)
+    if (year)    out = out.filter(r => r.plan_year === year)
+    if (rts)     out = out.filter(r => r.rts_status === rts)
     if (name) {
-      const term = `%${name}%`
-      q = q.or(`first_name.ilike.${term},last_name.ilike.${term}`)
+      const s = name.toLowerCase()
+      out = out.filter(r =>
+        (r.first_name || '').toLowerCase().includes(s) || (r.last_name || '').toLowerCase().includes(s))
     }
-    q = q.in('agent_npn', [...licensedNpns])
-    const { data } = await q
-    setRows(data || [])
-  }
+    return out.sort(sortCompare(sort))
+  }, [rows, licensedNpns, carrier, state, year, rts, name, sort])
 
-  const sorted = [...rows].sort(sortCompare(sort))
   const slice = sorted.slice((page - 1) * PER_PAGE, page * PER_PAGE)
 
   return (
@@ -84,7 +82,7 @@ export default function Appointments() {
             <option value="Y">Ready (Y)</option>
             <option value="N">Not ready (N)</option>
           </select>
-          <span style={{ color: '#64748b', fontSize: 13 }}>{rows.length} rows</span>
+          <span style={{ color: '#64748b', fontSize: 13 }}>{sorted.length} rows</span>
         </div>
         <table>
           <thead>
@@ -104,7 +102,7 @@ export default function Appointments() {
             ))}
           </tbody>
         </table>
-        <Pagination page={page} total={rows.length} perPage={PER_PAGE} onChange={setPage} />
+        <Pagination page={page} total={sorted.length} perPage={PER_PAGE} onChange={setPage} />
       </div>
     </>
   )
