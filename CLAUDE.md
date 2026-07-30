@@ -116,6 +116,15 @@ Parsing helpers live in `src/lib/parse.js` (`readWorkbook`, `sheetToObjects`,
 column headers, and "LAST, FIRST" name formats are all real cases handled in
 existing importers; mirror those patterns.
 
+## Agency licenses (`/agency`)
+
+Business-entity licenses (NSBA, HSK, …) are on NIPR but NOT in Onyx, so they're
+managed manually: `agency_licenses` table from `supabase/agency.sql` (run
+manually; page shows a setup notice if missing), CRUD + lenient NIPR-style CSV
+import on the Agency Licenses page (editor-gated), expiration badges, and a
+compliance check flagging states with RTS=Y agents but no active agency
+license. Dashboard 30/60/90 boxes append agency expirations as a sub-line.
+
 ## Release workflows (`/releases`)
 
 Tracks carrier release processes per agent: select agent + carriers → upload

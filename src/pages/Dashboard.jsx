@@ -29,6 +29,17 @@ export default function Dashboard() {
     // Fetch ALL license rows (paginated past 1000-row cap)
     const allLics = await fetchAll('licenses', 'npn,licensee_name,state,status,expiration_date,loa')
 
+    // Agency (business-entity) licenses — table may not exist until its
+    // migration is run, so fail soft to an empty list.
+    const agencyLics = await fetchAll('agency_licenses', 'entity,state,status,expiration_date')
+      .catch(() => [])
+    const agencyExpiring = (days) => {
+      const cutoff = new Date(Date.now() + days * 86400000).toISOString().slice(0, 10)
+      return agencyLics.filter(l =>
+        l.status === 'Active' && l.expiration_date &&
+        l.expiration_date >= today && l.expiration_date <= cutoff).length
+    }
+
     const licensedNpns = new Set(allLics.map(l => l.npn))
     const npnList = [...licensedNpns]
 
@@ -63,6 +74,7 @@ export default function Dashboard() {
       readyAppts:   appt.count ?? 0,
       expiringSoon: expiringAll.length,
       exp30, exp60, exp90,
+      agency30: agencyExpiring(30), agency60: agencyExpiring(60), agency90: agencyExpiring(90),
     })
     setExpiring(expiringAll)
 
@@ -111,9 +123,9 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-3" style={{ marginTop: 16 }}>
-        <Stat label="Licenses expiring in 30 days or less" value={stats.exp30} to="/licenses?expiring=30&status=Active" tone="urgent" />
-        <Stat label="Licenses expiring in 60 days or less" value={stats.exp60} to="/licenses?expiring=60&status=Active" tone="warning" />
-        <Stat label="Licenses expiring in 90 days or less" value={stats.exp90} to="/licenses?expiring=90&status=Active" tone="ok" />
+        <Stat label="Licenses expiring in 30 days or less" value={stats.exp30} to="/licenses?expiring=30&status=Active" tone="urgent" sub={stats.agency30 ? `+${stats.agency30} agency license(s)` : null} subTo="/agency" />
+        <Stat label="Licenses expiring in 60 days or less" value={stats.exp60} to="/licenses?expiring=60&status=Active" tone="warning" sub={stats.agency60 ? `+${stats.agency60} agency license(s)` : null} subTo="/agency" />
+        <Stat label="Licenses expiring in 90 days or less" value={stats.exp90} to="/licenses?expiring=90&status=Active" tone="ok" sub={stats.agency90 ? `+${stats.agency90} agency license(s)` : null} subTo="/agency" />
       </div>
 
       <div style={{ marginTop: 24 }}>
@@ -193,10 +205,10 @@ const TONES = {
   ok:      { color: '#15803d', bg: '#f0fdf4', ring: 'rgba(21,128,61,0.12)', tag: 'WATCH',  icon: '•' },
 }
 
-function Stat({ label, value, to, tone }) {
+function Stat({ label, value, to, tone, sub, subTo }) {
   if (tone && TONES[tone]) {
     const t = TONES[tone]
-    const hasAny = Number(value) > 0
+    const hasAny = Number(value) > 0 || !!sub
     return (
       <div
         className="card"
@@ -242,6 +254,11 @@ function Stat({ label, value, to, tone }) {
         >
           {to ? <Link to={to} style={{ color: 'inherit', textDecoration: 'underline' }}>{value}</Link> : value}
         </div>
+        {sub && (
+          <div style={{ fontSize: 12, fontWeight: 700, marginTop: 2, color: t.color }}>
+            {subTo ? <Link to={subTo} style={{ color: 'inherit', textDecoration: 'underline' }}>{sub}</Link> : sub}
+          </div>
+        )}
       </div>
     )
   }
