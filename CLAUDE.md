@@ -28,6 +28,9 @@ There is no test suite.
 - `VITE_CLERK_PUBLISHABLE_KEY` — required; app throws at boot without it (`src/main.jsx`)
 - `VITE_ADMIN_EMAILS` — comma-separated allowlist. Empty = everyone signed-in is
   allowed; non-empty = only listed emails pass `AdminGate` (`src/App.jsx`)
+- `VITE_EDITOR_EMAILS` — comma-separated subset who may change data (Onyx sync,
+  file imports, clear-all — `src/lib/useIsEditor.js`). Empty = every admin is an
+  editor. Client-side gating only, like the rest of the app.
 
 ## Layout
 

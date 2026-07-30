@@ -4,6 +4,7 @@ import { IMPORTERS, IMPORTER_LIST } from '../lib/importers/index.js'
 import { supabase } from '../lib/supabase.js'
 import { fetchAll } from '../lib/fetchAll.js'
 import { autoConfirmRts } from '../lib/releases.js'
+import { useIsEditor } from '../lib/useIsEditor.js'
 
 // Compare parsed appointment rows against what's already stored for the same
 // carrier(s) + plan year(s), BEFORE upserting — so each import shows exactly
@@ -52,6 +53,7 @@ function groupByAgent(rows) {
 
 export default function Imports() {
   const { user } = useUser()
+  const isEditor = useIsEditor()
   const [importerKey, setImporterKey] = useState(IMPORTER_LIST[0]?.key || '')
   const [planYear, setPlanYear] = useState(2026)
   const [file, setFile] = useState(null)
@@ -214,6 +216,27 @@ export default function Imports() {
     } finally {
       setClearing(false)
     }
+  }
+
+  if (!isEditor) {
+    return (
+      <>
+        <h1>Imports</h1>
+        <div className="card">
+          <h2>View-only access</h2>
+          <p style={{ color: '#64748b', fontSize: 13 }}>
+            Your account can view everything in the app, but syncing from Onyx and uploading
+            carrier files are limited to data admins. Licenses refresh automatically from Onyx
+            every night either way.
+          </p>
+          <div style={{ color: '#64748b', fontSize: 13 }}>
+            {lastSync
+              ? `Last synced ${formatWhen(lastSync.imported_at)} · ${lastSync.row_count ?? 0} licenses${lastSync.imported_by ? ` · by ${lastSync.imported_by}` : ' · by daily cron'}`
+              : 'Never synced yet.'}
+          </div>
+        </div>
+      </>
+    )
   }
 
   return (
