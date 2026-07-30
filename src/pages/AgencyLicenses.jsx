@@ -4,6 +4,7 @@ import { fetchAll } from '../lib/fetchAll.js'
 import { readCsv, toDate, clean } from '../lib/parse.js'
 import { toStateCode } from '../lib/states.js'
 import { activePlanYear } from '../lib/coverageModel.js'
+import { isOperatingState } from '../lib/operatingStates.js'
 import { useIsEditor } from '../lib/useIsEditor.js'
 import { Th, useSortState, sortCompare } from '../components/SortHeader.jsx'
 
@@ -76,7 +77,9 @@ export default function AgencyLicenses() {
     const covered = new Set(rows
       .filter(r => r.status === 'Active' && (!r.expiration_date || r.expiration_date >= today))
       .map(r => r.state))
-    return [...selling].filter(s => !covered.has(s)).sort()
+    // Non-operating states are excluded: carrier files may list RTS there, but
+    // the agency deliberately doesn't sell/market in those states.
+    return [...selling].filter(s => isOperatingState(s) && !covered.has(s)).sort()
   }, [rows, appointments, today])
 
   const visible = useMemo(() => {
@@ -171,9 +174,14 @@ export default function AgencyLicenses() {
         })
       }
       if (!out.length) throw new Error('No usable rows found. If the file has no Entity column, fill in the entity name next to the upload button.')
-      const { error: err } = await supabase.from('agency_licenses').insert(out)
+      // NIPR exports keep superseded records (e.g. CA pre-conversion rows) as
+      // Inactive alongside the current Active license. If an entity+state has
+      // any Active row in the file, drop that state's Inactive rows.
+      const activeStates = new Set(out.filter(r => r.status === 'Active').map(r => `${r.entity}|${r.state}`))
+      const deduped = out.filter(r => r.status === 'Active' || !activeStates.has(`${r.entity}|${r.state}`))
+      const { error: err } = await supabase.from('agency_licenses').insert(deduped)
       if (err) throw err
-      setImportResult(out.length)
+      setImportResult(deduped.length)
       await load()
     } catch (e) {
       setError(e.message || String(e))

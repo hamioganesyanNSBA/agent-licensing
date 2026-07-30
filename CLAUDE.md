@@ -137,6 +137,14 @@ SQL editor — the Releases page shows a setup notice if missing). Progress and
 completion logic live in `src/lib/releases.js`; a workflow auto-completes when
 the letter is uploaded and every carrier is RTS-confirmed.
 
+## Non-operating states (`src/lib/operatingStates.js`)
+
+The agency deliberately doesn't sell/market in some states (AK DC HI MA NH NY
+VT WY) and holds no agency licenses there. These are excluded from the Sunfire
+export, Coverage gap math, and the agency compliance check — even when agents
+hold personal licenses or carrier RTS files list them as ready. Update the set
+when the agency footprint changes.
+
 ## Carrier footprints (`src/lib/carrierFootprints.js`)
 
 The Coverage page compares appointments only against states where each carrier

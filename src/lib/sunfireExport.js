@@ -11,6 +11,7 @@
 //   - Carrier names use Sunfire's display names (e.g. "Wellcare Health Plans").
 //   - NPN / numeric writing numbers are written as numbers, like the sample.
 import * as XLSX from 'xlsx'
+import { isOperatingState } from './operatingStates.js'
 
 const COLUMNS = [
   'Agent NPN','First Name','Last Name','Email','Carrier','Plan Year',
@@ -49,6 +50,7 @@ export function buildSunfireRows(appointments, agents, activeNpns, { fmo = null 
   for (const a of appointments) {
     if (a.rts_status !== 'Y') continue                    // only ready states
     if (!activeNpns.has(a.agent_npn)) continue            // only active agents
+    if (!isOperatingState(a.state)) continue              // agency doesn't sell/market there
     const key = `${a.agent_npn}|${a.carrier}|${a.plan_year}`
     let g = groups.get(key)
     if (!g) {

@@ -3,6 +3,7 @@
 // active unexpired license — restricted to each carrier's plan footprint —
 // against RTS=Y appointment states for the latest plan year.
 import { statesInFootprint } from './carrierFootprints.js'
+import { isOperatingState } from './operatingStates.js'
 
 export const KNOWN_CARRIERS = ['Aetna', 'Anthem', 'Cigna', 'Devoted', 'SCAN', 'UnitedHealthcare', 'Wellcare', 'Zing']
 export const CARRIER_SHORT = { UnitedHealthcare: 'UHC' }
@@ -29,10 +30,13 @@ export function buildCoverageModel(licenses, appointments, agents, planYearOverr
   const today = new Date().toISOString().slice(0, 10)
 
   // Active licensed states per NPN (usable license = Active and not expired).
+  // States the agency doesn't operate in are excluded — no appointments are
+  // pursued there, so they must not count as coverage gaps.
   const licensedByNpn = new Map()
   for (const l of licenses) {
     if (l.status !== 'Active') continue
     if (l.expiration_date && l.expiration_date < today) continue
+    if (!isOperatingState(l.state)) continue
     if (!licensedByNpn.has(l.npn)) licensedByNpn.set(l.npn, new Set())
     licensedByNpn.get(l.npn).add(l.state)
   }
