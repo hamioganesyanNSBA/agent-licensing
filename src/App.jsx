@@ -6,6 +6,7 @@ import AgentDetail from './pages/AgentDetail.jsx'
 import Licenses from './pages/Licenses.jsx'
 import Renewals from './pages/Renewals.jsx'
 import RenewalDetail from './pages/RenewalDetail.jsx'
+import AgencyRenewal from './pages/AgencyRenewal.jsx'
 import Appointments from './pages/Appointments.jsx'
 import Coverage from './pages/Coverage.jsx'
 import Releases from './pages/Releases.jsx'
@@ -72,6 +73,7 @@ export default function App() {
                 <Route path="/agents/:npn" element={<AgentDetail />} />
                 <Route path="/licenses" element={<Licenses />} />
                 <Route path="/renewals" element={<Renewals />} />
+                <Route path="/renewals/agency" element={<AgencyRenewal />} />
                 <Route path="/renewals/:npn" element={<RenewalDetail />} />
                 <Route path="/agency" element={<AgencyLicenses />} />
                 <Route path="/appointments" element={<Appointments />} />

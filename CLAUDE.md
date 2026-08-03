@@ -140,6 +140,16 @@ follow-up. Table `license_renewals` from `supabase/renewals.sql` (run manually;
 pages show a setup notice if missing). Renewals track whole licenses
 (npn+state+license_number, all LOAs together), not per-LOA rows.
 
+Agency licenses have a parallel flow at `/renewals/agency`
+(`agency_license_renewals`, same SQL file): identical steps, but completion is
+manual — agency licenses aren't in Onyx, so "Mark renewed" writes the new
+expiration onto the `agency_licenses` row and closes the renewal (the
+auto-complete also notices expirations edited on the Agency Licenses page).
+
+The Onyx sync skips the platform's shared org login (`all-organization-login@`,
+placeholder NPN 3333333) — it isn't an agent but carries ~50 license rows that
+otherwise pollute every page (see `SYSTEM_NPNS` in `api/sync-licenses.js`).
+
 ## Release workflows (`/releases`)
 
 Tracks carrier release processes per agent: select agent + carriers → upload

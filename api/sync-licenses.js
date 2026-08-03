@@ -25,6 +25,14 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY
 
 const DETAIL_CONCURRENCY = 8   // ~128 agents / 8 = 16 batches, well under 300/min
 
+// Onyx's shared org-level login shows up in the user list as an active "user"
+// with a placeholder NPN and dozens of licenses. It is not an agent — skip it
+// so it never lands in agents/licenses (the prune step below then removes any
+// previously synced rows for it).
+const SYSTEM_NPNS = new Set(['3333333'])
+const isSystemUser = u => SYSTEM_NPNS.has(u.npn_number)
+  || /^all-organization-login@/i.test(u.email || '')
+
 async function onyxGet(path) {
   const res = await fetch(`${ONYX_BASE}${path}`, { headers: { 'X-API-Key': ONYX_KEY } })
   if (!res.ok) {
@@ -71,7 +79,7 @@ export default async function handler(req, res) {
     // 2) Fetch per-user detail (licenses live only on the detail record).
     //    Only active users with an NPN are agents. Per-user failures are
     //    non-fatal: we simply don't touch that agent's existing licenses.
-    const agentUsers = users.filter(u => u.npn_number && u.is_active)
+    const agentUsers = users.filter(u => u.npn_number && u.is_active && !isSystemUser(u))
     const activeNpns = new Set(agentUsers.map(u => u.npn_number))
     const agentRows = []
     const licenseRows = []

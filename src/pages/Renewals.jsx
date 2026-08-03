@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { fetchAll } from '../lib/fetchAll.js'
 import {
   EXPIRING_WINDOW_DAYS, licenseKey, expiringLicenses,
+  agencyLicenseKey, expiringAgencyLicenses, autoCompleteAgencyRenewals,
   businessDaysSince, isStale, fmtTs, autoCompleteRenewals,
 } from '../lib/renewals.js'
 
@@ -12,6 +13,7 @@ export default function Renewals() {
   const [licenses, setLicenses] = useState(null)
   const [agents, setAgents] = useState([])
   const [renewals, setRenewals] = useState(null)
+  const [agency, setAgency] = useState(null)   // { licenses, renewals } or null if unavailable
   const [setupNeeded, setSetupNeeded] = useState(false)
   const [error, setError] = useState('')
 
@@ -31,6 +33,14 @@ export default function Renewals() {
       if (/does not exist|42P01|schema cache|PGRST205/i.test(e.message || '')) setSetupNeeded(true)
       else setError(e.message || String(e))
       setRenewals([])
+    }
+    // Agency section is best-effort: hidden when its tables aren't set up.
+    try {
+      const lics = await fetchAll('agency_licenses', '*')
+      await autoCompleteAgencyRenewals()
+      setAgency({ licenses: lics, renewals: await fetchAll('agency_license_renewals', '*') })
+    } catch {
+      setAgency(null)
     }
   }
 
@@ -78,6 +88,22 @@ export default function Renewals() {
     }), { undecided: 0, toRenew: 0, pendingSync: 0, flagged: 0 })
     return { summary, totals, flaggedRows }
   }, [licenses, agents, renewals])
+
+  const agencyModel = useMemo(() => {
+    if (!agency) return null
+    const { licenses: lics, renewals: rens } = agency
+    const expiring = expiringAgencyLicenses(lics)
+    const undecided = expiring.filter(lic => !rens.some(r =>
+      agencyLicenseKey(r) === agencyLicenseKey(lic)
+      && (OPEN_STATUSES.has(r.status) || r.expiration_date === lic.expiration_date)))
+    const toRenew = rens.filter(r => r.status === 'selected').length
+    const pendingRows = rens.filter(r => r.status === 'submitted')
+    const flagged = pendingRows.filter(isStale).length
+    const earliest = undecided[0]?.expiration_date || null
+    const any = undecided.length || toRenew || pendingRows.length
+    return { undecided: undecided.length, toRenew, pendingSync: pendingRows.length,
+      flagged, earliest, any }
+  }, [agency])
 
   if (setupNeeded) return (
     <>
@@ -136,6 +162,30 @@ export default function Renewals() {
           </table>
         </div>
       )}
+
+      {agencyModel?.any ? (
+        <div className="card" style={agencyModel.flagged ? { borderColor: '#fca5a5' } : undefined}>
+          <h2>Agency licenses</h2>
+          <p style={{ fontSize: 13, color: '#64748b', marginBottom: 8 }}>
+            Business-entity licenses expiring within {EXPIRING_WINDOW_DAYS} days —
+            renewed manually (not synced from Onyx).
+          </p>
+          <div style={{ display: 'flex', gap: 18, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span>Needs decision: <strong>{agencyModel.undecided}</strong></span>
+            <span>To submit: <strong>{agencyModel.toRenew}</strong></span>
+            <span>Pending approval: <strong>{agencyModel.pendingSync}</strong></span>
+            {agencyModel.flagged > 0 && (
+              <span className="badge badge-n">⚠ {agencyModel.flagged} flagged</span>
+            )}
+            {agencyModel.earliest && (
+              <span style={{ color: '#64748b', fontSize: 13 }}>
+                Earliest expiration: {agencyModel.earliest}
+              </span>
+            )}
+            <Link className="btn" to="/renewals/agency">Renew now →</Link>
+          </div>
+        </div>
+      ) : null}
 
       <div className="card">
         <h2>Agents with renewal work ({summary.length})</h2>

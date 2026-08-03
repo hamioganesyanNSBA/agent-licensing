@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
+import { EXPIRING_WINDOW_DAYS, expiringAgencyLicenses } from '../lib/renewals.js'
 import { fetchAll } from '../lib/fetchAll.js'
 import { readCsv, toDate, clean } from '../lib/parse.js'
 import { toStateCode } from '../lib/states.js'
@@ -201,10 +203,25 @@ export default function AgencyLicenses() {
 
   if (!rows) return <><h1>Agency Licenses</h1><div className="card">Loading…</div></>
 
+  const expiringCount = expiringAgencyLicenses(rows).length
+
   return (
     <>
       <h1>Agency Licenses</h1>
       {error && <div className="card" style={{ color: '#991b1b' }}>Error: {error}</div>}
+
+      {expiringCount > 0 && (
+        <div className="card" style={{ borderColor: '#fcd34d', background: '#fffbeb',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <div>
+            <strong>⚠ {expiringCount} agency license{expiringCount === 1 ? '' : 's'} expiring</strong>
+            <span style={{ color: '#92400e' }}> within {EXPIRING_WINDOW_DAYS} days</span>
+          </div>
+          <Link className="btn" to="/renewals/agency" style={{ whiteSpace: 'nowrap' }}>
+            Renew now →
+          </Link>
+        </div>
+      )}
 
       {complianceGaps.length > 0 && (
         <div className="card" style={{ borderColor: '#b91c1c', background: '#fff1f2' }}>

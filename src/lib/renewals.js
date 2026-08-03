@@ -91,6 +91,52 @@ export function fmtTs(ts) {
   return new Date(ts).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })
 }
 
+// ---------- Agency (business-entity) license renewals ----------
+// Same lifecycle, but agency licenses aren't in Onyx: completion is manual
+// ("Mark renewed" writes the new expiration to agency_licenses), and the
+// auto-complete below just notices expirations edited on the Agency page.
+
+export const agencyLicenseKey = r => `${r.entity}|${r.state}|${r.license_number || ''}`
+
+/** Active agency_licenses rows expiring within the window. */
+export function expiringAgencyLicenses(rows, windowDays = EXPIRING_WINDOW_DAYS) {
+  const cutoff = isoDaysFromNow(windowDays)
+  return rows
+    .filter(r => r.status === 'Active' && r.expiration_date && r.expiration_date <= cutoff)
+    .sort((a, b) => a.expiration_date.localeCompare(b.expiration_date)
+      || a.entity.localeCompare(b.entity) || a.state.localeCompare(b.state))
+}
+
+/**
+ * Close out submitted agency renewals whose license now shows a later
+ * expiration (updated via "Mark renewed" or edited on the Agency page).
+ * Defensive: returns 0 when either table doesn't exist yet.
+ */
+export async function autoCompleteAgencyRenewals() {
+  const { data: rows, error } = await supabase.from('agency_license_renewals')
+    .select('*').eq('status', 'submitted')
+  if (error || !rows?.length) return 0
+  let licenses
+  try { licenses = await fetchAll('agency_licenses', 'id,entity,state,license_number,expiration_date') }
+  catch { return 0 }
+  const latest = new Map()
+  for (const l of licenses) {
+    const k = agencyLicenseKey(l)
+    const exp = l.expiration_date || ''
+    if (!latest.has(k) || exp > latest.get(k)) latest.set(k, exp)
+  }
+  const now = new Date().toISOString()
+  let completed = 0
+  for (const r of rows) {
+    const cur = latest.get(agencyLicenseKey(r))
+    if (!cur || cur <= r.expiration_date) continue
+    const { error: uErr } = await supabase.from('agency_license_renewals')
+      .update({ status: 'completed', completed_at: now }).eq('id', r.id)
+    if (!uErr) completed++
+  }
+  return completed
+}
+
 /**
  * Close out submitted renewals once the Onyx sync shows a later expiration for
  * the license. Runs when renewal pages load. Defensive: returns 0 instead of
