@@ -30,14 +30,23 @@ export const CARRIER_FOOTPRINTS = {
     'AZ', 'FL', 'IA', 'KS', 'NJ', 'TN', 'TX', 'WA', // Wellpoint
   ]),
 
+  // Cigna/HealthSpring (HCSC) sells MA/MAPD in 29 states + DC for 2026. Its
+  // PDP footprint is near-national (48 states), so without this list the
+  // PDP-only states show up as false "missing appointment" gaps — we only
+  // sell MA/MAPD. List cross-checked between valuepenguin.com and
+  // moneygeek.com 2026 HealthSpring MA reviews (Aug 2026).
+  Cigna: new Set([
+    'AL', 'AR', 'AZ', 'CO', 'CT', 'DC', 'DE', 'FL', 'GA', 'IL', 'KS', 'KY',
+    'MD', 'MO', 'MS', 'NC', 'NJ', 'NM', 'NV', 'NY', 'OH', 'OK', 'OR', 'PA',
+    'SC', 'TN', 'TX', 'UT', 'VA', 'WA',
+  ]),
+
   // Near-national for 2026 — leave unrestricted so real gaps are never hidden:
   // Aetna (MAPD in 43 states + DC), UHC (~national), Wellcare (MA in 32
-  // states + national PDP), Cigna/HealthSpring (29 states + DC, exact list
-  // not published).
+  // states + national PDP).
   Aetna: null,
   UnitedHealthcare: null,
   Wellcare: null,
-  Cigna: null,
 }
 
 /** States (from `licensedStates`) where `carrier` actually sells plans. */
