@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { fetchAll } from '../lib/fetchAll.js'
 import { TIER_1, TIER_2 } from '../lib/tiers.js'
+import { expiringAgencyLicenses } from '../lib/renewals.js'
 import { toStateCode } from '../lib/states.js'
 import USMap from '../components/USMap.jsx'
 import Pagination from '../components/Pagination.jsx'
@@ -31,14 +32,11 @@ export default function Dashboard() {
 
     // Agency (business-entity) licenses — table may not exist until its
     // migration is run, so fail soft to an empty list.
-    const agencyLics = await fetchAll('agency_licenses', 'entity,state,status,expiration_date')
+    const agencyLics = await fetchAll('agency_licenses', 'id,entity,state,license_number,loa,status,expiration_date')
       .catch(() => [])
-    const agencyExpiring = (days) => {
-      const cutoff = new Date(Date.now() + days * 86400000).toISOString().slice(0, 10)
-      return agencyLics.filter(l =>
-        l.status === 'Active' && l.expiration_date &&
-        l.expiration_date >= today && l.expiration_date <= cutoff).length
-    }
+    // Grouped per license (agency_licenses keeps one row per LOA), future-dated only.
+    const agencyExpiring = (days) =>
+      expiringAgencyLicenses(agencyLics, days).filter(l => l.expiration_date >= today).length
 
     const licensedNpns = new Set(allLics.map(l => l.npn))
     const npnList = [...licensedNpns]

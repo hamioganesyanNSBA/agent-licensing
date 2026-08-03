@@ -124,13 +124,12 @@ export default function AgencyRenewal() {
     }
     setBusy(true); setError('')
     try {
+      // Update every row of the license — agency_licenses keeps one row per
+      // LOA (NIPR-style), and the whole license renews together.
       const patch = { expiration_date: newExp, status: 'Active', updated_at: new Date().toISOString() }
       let q = supabase.from('agency_licenses').update(patch)
-      if (row.agency_license_id) q = q.eq('id', row.agency_license_id)
-      else {
-        q = q.eq('entity', row.entity).eq('state', row.state)
-        q = row.license_number ? q.eq('license_number', row.license_number) : q.is('license_number', null)
-      }
+        .eq('entity', row.entity).eq('state', row.state)
+      q = row.license_number ? q.eq('license_number', row.license_number) : q.is('license_number', null)
       const { error: lErr } = await q
       if (lErr) throw lErr
       const { error } = await supabase.from('agency_license_renewals')
@@ -206,7 +205,7 @@ export default function AgencyRenewal() {
                   checked={pickIds.size === undecided.length}
                   onChange={e => setPickIds(e.target.checked
                     ? new Set(undecided.map(l => l.id)) : new Set())} />
-              </th><th>Entity</th><th>State</th><th>License #</th><th>Type</th><th>Expires</th></tr></thead>
+              </th><th>Entity</th><th>State</th><th>License #</th><th>Type</th><th>LOAs</th><th>Expires</th></tr></thead>
               <tbody>
                 {undecided.map(l => (
                   <tr key={l.id}>
@@ -217,6 +216,7 @@ export default function AgencyRenewal() {
                     <td>{l.state}</td>
                     <td>{l.license_number}</td>
                     <td style={{ fontSize: 12 }}>{l.license_type}</td>
+                    <td style={{ fontSize: 12 }}>{l.loas.join(', ')}</td>
                     <td>{expBadge(l.expiration_date)}</td>
                   </tr>
                 ))}

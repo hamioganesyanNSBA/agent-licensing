@@ -98,11 +98,30 @@ export function fmtTs(ts) {
 
 export const agencyLicenseKey = r => `${r.entity}|${r.state}|${r.license_number || ''}`
 
-/** Active agency_licenses rows expiring within the window. */
+/**
+ * Group Active agency_licenses rows (NIPR-style, one per LOA) into per-license
+ * entries expiring within the window — same shape as expiringLicenses. `id` is
+ * a representative row id; renewal actions match on the key, not the id.
+ */
 export function expiringAgencyLicenses(rows, windowDays = EXPIRING_WINDOW_DAYS) {
   const cutoff = isoDaysFromNow(windowDays)
-  return rows
-    .filter(r => r.status === 'Active' && r.expiration_date && r.expiration_date <= cutoff)
+  const byKey = new Map()
+  for (const r of rows) {
+    if (r.status !== 'Active' || !r.expiration_date) continue
+    const key = agencyLicenseKey(r)
+    let e = byKey.get(key)
+    if (!e) {
+      e = { id: r.id, entity: r.entity, state: r.state,
+            license_number: r.license_number, license_type: r.license_type,
+            loas: new Set(), expiration_date: r.expiration_date }
+      byKey.set(key, e)
+    }
+    if (r.loa) e.loas.add(r.loa)
+    if (r.expiration_date < e.expiration_date) e.expiration_date = r.expiration_date
+  }
+  return [...byKey.values()]
+    .filter(l => l.expiration_date <= cutoff)
+    .map(l => ({ ...l, loas: [...l.loas].sort() }))
     .sort((a, b) => a.expiration_date.localeCompare(b.expiration_date)
       || a.entity.localeCompare(b.entity) || a.state.localeCompare(b.state))
 }
