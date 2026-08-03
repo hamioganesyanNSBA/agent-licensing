@@ -123,9 +123,9 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-3" style={{ marginTop: 16 }}>
-        <Stat label="Licenses expiring in 30 days or less" value={stats.exp30} to="/licenses?expiring=30&status=Active" tone="urgent" sub={stats.agency30 ? `+${stats.agency30} agency license(s)` : null} subTo="/agency" />
-        <Stat label="Licenses expiring in 60 days or less" value={stats.exp60} to="/licenses?expiring=60&status=Active" tone="warning" sub={stats.agency60 ? `+${stats.agency60} agency license(s)` : null} subTo="/agency" />
-        <Stat label="Licenses expiring in 90 days or less" value={stats.exp90} to="/licenses?expiring=90&status=Active" tone="ok" sub={stats.agency90 ? `+${stats.agency90} agency license(s)` : null} subTo="/agency" />
+        <Stat label="Licenses expiring in 30 days or less" value={stats.exp30} to="/renewals" tone="urgent" sub={stats.agency30 ? `+${stats.agency30} agency license(s)` : null} subTo="/renewals/agency" />
+        <Stat label="Licenses expiring in 60 days or less" value={stats.exp60} to="/renewals" tone="warning" sub={stats.agency60 ? `+${stats.agency60} agency license(s)` : null} subTo="/renewals/agency" />
+        <Stat label="Licenses expiring in 90 days or less" value={stats.exp90} to="/renewals" tone="ok" sub={stats.agency90 ? `+${stats.agency90} agency license(s)` : null} subTo="/renewals/agency" />
       </div>
 
       <div style={{ marginTop: 24 }}>
@@ -182,11 +182,13 @@ export default function Dashboard() {
         {expiring.length === 0 ? <p>None.</p> : (
           <>
             <table>
-              <thead><tr><th>Licensee</th><th>NPN</th><th>State</th><th>LOA</th><th>Expires</th></tr></thead>
+              <thead><tr><th>Licensee</th><th>NPN</th><th>State</th><th>LOA</th><th>Expires</th><th /></tr></thead>
               <tbody>
                 {expSlice.map((r, i) => (
                   <tr key={i}>
-                    <td>{r.licensee_name}</td><td>{r.npn}</td><td>{r.state}</td><td>{r.loa}</td><td>{r.expiration_date}</td>
+                    <td><Link to={`/renewals/${r.npn}`}>{r.licensee_name}</Link></td>
+                    <td>{r.npn}</td><td>{r.state}</td><td>{r.loa}</td><td>{r.expiration_date}</td>
+                    <td><Link to={`/renewals/${r.npn}`}>Renew →</Link></td>
                   </tr>
                 ))}
               </tbody>
