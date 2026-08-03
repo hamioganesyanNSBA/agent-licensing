@@ -162,6 +162,17 @@ SQL editor — the Releases page shows a setup notice if missing). Progress and
 completion logic live in `src/lib/releases.js`; a workflow auto-completes when
 the letter is uploaded and every carrier is RTS-confirmed.
 
+## Licensing costs (`/costs`)
+
+Tracks licensing spend from Sircon's monthly "Billed Transactions" CSV exports:
+upload (editor-gated, multi-file, dedup-safe via a
+confirmation+service+fees unique key), timeframe presets / custom range,
+filters by agent/state/service, breakdowns by month / agent / service / state,
+paginated detail, and a multi-sheet .xlsx report download. Table
+`licensing_costs` from `supabase/costs.sql` (run manually; page shows a setup
+notice if missing). Parsing lives in `src/lib/sirconCosts.js`. The exports
+contain SSN/EIN columns — these are deliberately never stored.
+
 ## Non-operating states (`src/lib/operatingStates.js`)
 
 The agency deliberately doesn't sell/market in some states (AK DC HI MA NH NY

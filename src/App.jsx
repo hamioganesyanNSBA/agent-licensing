@@ -7,6 +7,7 @@ import Licenses from './pages/Licenses.jsx'
 import Renewals from './pages/Renewals.jsx'
 import RenewalDetail from './pages/RenewalDetail.jsx'
 import AgencyRenewal from './pages/AgencyRenewal.jsx'
+import Costs from './pages/Costs.jsx'
 import Appointments from './pages/Appointments.jsx'
 import Coverage from './pages/Coverage.jsx'
 import Releases from './pages/Releases.jsx'
@@ -58,6 +59,7 @@ export default function App() {
                 <NavLink to="/appointments">Appointments</NavLink>
                 <NavLink to="/coverage">Coverage</NavLink>
                 <NavLink to="/releases">Releases</NavLink>
+                <NavLink to="/costs">Costs</NavLink>
                 <NavLink to="/imports">Imports</NavLink>
                 <NavLink to="/sunfire">Sunfire Export</NavLink>
               </nav>
@@ -80,6 +82,7 @@ export default function App() {
                 <Route path="/coverage" element={<Coverage />} />
                 <Route path="/releases" element={<Releases />} />
                 <Route path="/releases/:id" element={<ReleaseDetail />} />
+                <Route path="/costs" element={<Costs />} />
                 <Route path="/imports" element={<Imports />} />
                 <Route path="/sunfire" element={<SunfireExport />} />
                 <Route path="*" element={<Navigate to="/" />} />
