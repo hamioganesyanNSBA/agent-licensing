@@ -4,6 +4,8 @@ import Dashboard from './pages/Dashboard.jsx'
 import Agents from './pages/Agents.jsx'
 import AgentDetail from './pages/AgentDetail.jsx'
 import Licenses from './pages/Licenses.jsx'
+import Renewals from './pages/Renewals.jsx'
+import RenewalDetail from './pages/RenewalDetail.jsx'
 import Appointments from './pages/Appointments.jsx'
 import Coverage from './pages/Coverage.jsx'
 import Releases from './pages/Releases.jsx'
@@ -50,6 +52,7 @@ export default function App() {
                 <NavLink to="/" end>Dashboard</NavLink>
                 <NavLink to="/agents">Agents</NavLink>
                 <NavLink to="/licenses">Licenses</NavLink>
+                <NavLink to="/renewals">Renewals</NavLink>
                 <NavLink to="/agency">Agency Licenses</NavLink>
                 <NavLink to="/appointments">Appointments</NavLink>
                 <NavLink to="/coverage">Coverage</NavLink>
@@ -68,6 +71,8 @@ export default function App() {
                 <Route path="/agents" element={<Agents />} />
                 <Route path="/agents/:npn" element={<AgentDetail />} />
                 <Route path="/licenses" element={<Licenses />} />
+                <Route path="/renewals" element={<Renewals />} />
+                <Route path="/renewals/:npn" element={<RenewalDetail />} />
                 <Route path="/agency" element={<AgencyLicenses />} />
                 <Route path="/appointments" element={<Appointments />} />
                 <Route path="/coverage" element={<Coverage />} />

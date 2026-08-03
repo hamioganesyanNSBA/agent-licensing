@@ -125,6 +125,21 @@ import on the Agency Licenses page (editor-gated), expiration badges, and a
 compliance check flagging states with RTS=Y agents but no active agency
 license. Dashboard 30/60/90 boxes append agency expirations as a sub-line.
 
+## License renewals (`/renewals`)
+
+Tracks agent license renewals through Sircon: the Renewals page (and a "Renew
+now" banner on the agent profile) groups an agent's licenses expiring within 90
+days (`EXPIRING_WINDOW_DAYS`), the editor picks renew vs. don't-renew (skip
+requires a reason — "Not in NSBA marketing" or "Other" with required notes),
+applies in Sircon (link out), and records the transaction confirmation number,
+which moves those licenses to "Completed — pending sync". A row auto-completes
+when the Onyx license sync shows a later expiration for that license
+(`autoCompleteRenewals()` in `src/lib/renewals.js`, run on renewal-page load);
+submitted rows with no sync update after 7 business days are flagged for
+follow-up. Table `license_renewals` from `supabase/renewals.sql` (run manually;
+pages show a setup notice if missing). Renewals track whole licenses
+(npn+state+license_number, all LOAs together), not per-LOA rows.
+
 ## Release workflows (`/releases`)
 
 Tracks carrier release processes per agent: select agent + carriers → upload

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
+import { EXPIRING_WINDOW_DAYS, expiringLicenses, daysUntil } from '../lib/renewals.js'
 
 export default function AgentDetail() {
   const { npn } = useParams()
@@ -30,11 +31,30 @@ export default function AgentDetail() {
     return r.status !== 'Active'
   })
 
+  const expiring = expiringLicenses(licenses)
+  const expiringDates = new Set(expiring.map(l => `${l.state}|${l.expiration_date}`))
+
   return (
     <>
       <Link to="/agents">← Agents</Link>
       <h1>{agent.first_name} {agent.last_name}</h1>
       <p style={{ color: '#64748b' }}>NPN {agent.npn} · {agent.email}</p>
+
+      {expiring.length > 0 && (
+        <div className="card" style={{ borderColor: '#fcd34d', background: '#fffbeb',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <div>
+            <strong>⚠ {expiring.length} license{expiring.length === 1 ? '' : 's'} expiring</strong>
+            <span style={{ color: '#92400e' }}>
+              {' '}within {EXPIRING_WINDOW_DAYS} days
+              {' '}(earliest: {expiring[0].state} on {expiring[0].expiration_date})
+            </span>
+          </div>
+          <Link className="btn" to={`/renewals/${agent.npn}`} style={{ whiteSpace: 'nowrap' }}>
+            Renew now →
+          </Link>
+        </div>
+      )}
 
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -66,7 +86,11 @@ export default function AgentDetail() {
                 <td>{r.state}</td><td>{r.license_type}</td><td>{r.loa}</td>
                 <td>{r.license_number}</td>
                 <td><span className={`badge ${r.status === 'Active' ? 'badge-y' : 'badge-n'}`}>{r.status}</span></td>
-                <td>{r.expiration_date}</td>
+                <td style={expiringDates.has(`${r.state}|${r.expiration_date}`)
+                  ? { color: daysUntil(r.expiration_date) < 0 ? '#991b1b' : '#b45309', fontWeight: 600 }
+                  : undefined}>
+                  {r.expiration_date}
+                </td>
               </tr>
             ))}
           </tbody>
