@@ -93,7 +93,11 @@ Registered in `index.js` (`IMPORTERS` map + `IMPORTER_LIST`) — these are the
 manual file uploads on the Imports page, all targeting `carrier_appointments`:
 `aetna`, `uhc`, `devoted`, `wellcare`, plus the "ProStat" carriers
 `healthspring` (Cigna), `scan`, `zing` which share `_prostat.js` (MA rows only;
-RTS=Y when State Status is Active/Certified). Licenses are **not** imported by
+RTS=Y when State Status is Active/Certified). The `scan` importer also accepts
+SCAN's newer "Agency Downlines" export (`AgencyDownlines_*.csv`, sniffed by
+header): one row per broker with a comma-packed STATES column; it emits rows
+for BOTH the selected plan year (CURR_YEAR_TRAINING) and the next
+(NEXT_YEAR_TRAINING), and repairs the export's glued header/first-row line. Licenses are **not** imported by
 file anymore — see the Onyx sync above.
 
 Each importer module exports:

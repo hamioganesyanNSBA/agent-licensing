@@ -379,7 +379,7 @@ const FILE_HINTS = {
   devoted:      /devoted/i,
   wellcare:     /wellcare|centene/i,
   healthspring: /health\s?spring|cigna/i,
-  scan:         /scan(?!ned)/i,
+  scan:         /scan(?!ned)|agency\s?downlines/i,
   zing:         /zing/i,
   anthem:       /anthem/i,
 }
