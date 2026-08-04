@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fetchAll } from '../lib/fetchAll.js'
 import { buildCoverageModel, CARRIER_SHORT as SHORT } from '../lib/coverageModel.js'
+import { Th, useSortState, sortCompare } from '../components/SortHeader.jsx'
 
 // Carrier coverage tracking (model in lib/coverageModel.js): green = appointed
 // in every sellable licensed state, amber = partial, red = no RTS appointments
@@ -17,6 +18,7 @@ export default function Coverage() {
   const [expanded, setExpanded] = useState(null)   // npn of the expanded row
   const [yearOverride, setYearOverride] = useState(null)   // null = automatic
   const [selCarriers, setSelCarriers] = useState(new Set())  // empty = all carriers
+  const [sort, toggleSort] = useSortState('name')
 
   useEffect(() => {
     fetchAll('licenses', 'npn,state,status,expiration_date').then(setLicenses)
@@ -40,7 +42,10 @@ export default function Coverage() {
   const rowsView = model.rows.map(r => {
     const cells = activeCarriers.map(c => r.cells[carrierIdx.get(c)])
     const gapCount = cells.filter(x => x.level === 'none' || x.level === 'partial').length
-    return { ...r, cells, gapCount }
+    // Sortable value per carrier column: coverage ratio (grey "na" sorts last).
+    const sortVals = {}
+    for (const c of cells) sortVals[`c_${c.carrier}`] = c.total === 0 ? null : c.covered / c.total
+    return { ...r, cells, gapCount, licensedCount: r.licensed.length, ...sortVals }
   })
   const fullyCovered = rowsView.filter(r => r.gapCount === 0).length
 
@@ -64,7 +69,7 @@ export default function Coverage() {
     if (!q) return true
     const s = q.toLowerCase()
     return r.name.toLowerCase().includes(s) || r.npn.includes(s)
-  })
+  }).sort(sortCompare(sort))
 
   const cellStyle = (level) => ({
     textAlign: 'center', cursor: 'pointer', fontWeight: 600, fontSize: 13,
@@ -116,15 +121,19 @@ export default function Coverage() {
           <table>
             <thead>
               <tr>
-                <th>Agent</th>
-                <th style={{ textAlign: 'center' }}>Lic. states</th>
+                <Th col={{ key: 'name', label: 'Agent' }} sort={sort} onToggle={toggleSort} />
+                <Th col={{ key: 'licensedCount', label: 'Lic. states' }} sort={sort} onToggle={toggleSort}
+                  style={{ textAlign: 'center' }} />
                 {activeCarriers.map((c, i) => (
-                  <th key={c} style={{ textAlign: 'center' }}>
-                    {SHORT[c] || c}
-                    <div style={{ fontWeight: 400, fontSize: 11, color: perCarrierMissing[i] ? '#991b1b' : '#64748b' }}>
-                      {perCarrierMissing[i]} missing
-                    </div>
-                  </th>
+                  <Th key={c} sort={sort} onToggle={toggleSort} style={{ textAlign: 'center' }}
+                    col={{ key: `c_${c}`, label: (
+                      <>
+                        {SHORT[c] || c}
+                        <div style={{ fontWeight: 400, fontSize: 11, color: perCarrierMissing[i] ? '#991b1b' : '#64748b' }}>
+                          {perCarrierMissing[i]} missing
+                        </div>
+                      </>
+                    ) }} />
                 ))}
               </tr>
             </thead>
