@@ -44,17 +44,19 @@ function pageText(content) {
 
 export async function readPdfText(file) {
   const pdfjs = await loadPdfjs()
-  const doc = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise
-  let text = ''
+  // destroy() lives on the loading task (PDFDocumentProxy lost it in pdfjs v6).
+  const task = pdfjs.getDocument({ data: await file.arrayBuffer() })
   try {
+    const doc = await task.promise
+    let text = ''
     for (let p = 1; p <= doc.numPages; p++) {
       const page = await doc.getPage(p)
       text += pageText(await page.getTextContent()) + '\n'
     }
+    return text
   } finally {
-    doc.destroy()
+    task.destroy()
   }
-  return text
 }
 
 const squash = s => (s || '').replace(/\s+/g, ' ').trim()
