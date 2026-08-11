@@ -140,6 +140,41 @@ export default function AgencyLicenses() {
     else load()
   }
 
+  function importFile(file) {
+    if (!file) return
+    if (/\.pdf$/i.test(file.name)) importPdb(file)
+    else importCsv(file)
+  }
+
+  // NIPR "PDB Detail" PDF report (my-nipr-order-<n>-detail.pdf): a complete
+  // snapshot of one entity's licenses, so it REPLACES that entity's rows.
+  async function importPdb(file) {
+    setError(''); setImportResult(null)
+    try {
+      const { parseNiprPdbPdf } = await import('../lib/niprPdb.js')
+      const { entityName, licenses } = await parseNiprPdbPdf(file)
+      if (!licenses.length) throw new Error('No license records found — is this a NIPR PDB Detail report? Nothing was imported.')
+      const entity = importEntity.trim() || entityName
+      if (!entity) throw new Error('Could not read the entity name from the report — fill in the entity name next to the upload button.')
+      const rows = licenses.map(l => ({ ...l, entity }))
+      // Same superseded-record rule as the CSV path: if a state has an Active
+      // license in the report, drop that state's Inactive rows.
+      const activeStates = new Set(rows.filter(r => r.status === 'Active').map(r => r.state))
+      const deduped = rows.filter(r => r.status === 'Active' || !activeStates.has(r.state))
+      const existing = (rows || []).filter(r => r.entity === entity).length
+      if (!window.confirm(`Import ${deduped.length} license(s) for "${entity}" from this report?`
+        + (existing ? ` This replaces the ${existing} existing ${entity} row(s).` : ''))) return
+      const { error: delErr } = await supabase.from('agency_licenses').delete().eq('entity', entity)
+      if (delErr) throw delErr
+      const { error: insErr } = await supabase.from('agency_licenses').insert(deduped)
+      if (insErr) throw insErr
+      setImportResult(deduped.length)
+      await load()
+    } catch (e) {
+      setError(e.message || String(e))
+    }
+  }
+
   async function importCsv(file) {
     if (!file) return
     setError(''); setImportResult(null)
@@ -312,18 +347,20 @@ export default function AgencyLicenses() {
 
       {isEditor && (
         <div className="card">
-          <h2>Import from CSV</h2>
+          <h2>Import from NIPR</h2>
           <p style={{ color: '#64748b', fontSize: 13 }}>
-            Upload a NIPR-style CSV of the agency&apos;s licenses (columns like State, License Number,
-            Type/Class, LOA, Issue Date, Expiration Date, Status). If the file has no Entity column,
-            enter the entity name here first — it will be applied to every row. Rows are added, not
-            replaced; delete mistakes from the table above.
+            Upload a NIPR <strong>PDB Detail report PDF</strong> (my-nipr-order-…-detail.pdf) — one
+            license per state is read from each License Summary section, and the entity&apos;s existing
+            rows are <em>replaced</em> with the report&apos;s snapshot. A NIPR-style CSV (columns like
+            State, License Number, Type/Class, LOA, Issue Date, Expiration Date, Status) still works
+            too; CSV rows are added, not replaced. Enter the entity name first — for PDFs it falls
+            back to the report&apos;s own name if left blank.
           </p>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
             <input placeholder="Entity for this file (e.g. NSBA)" value={importEntity} onChange={e => setImportEntity(e.target.value)} style={{ width: 220 }} />
             <label className="btn btn-secondary">
-              Upload CSV
-              <input type="file" accept=".csv" style={{ display: 'none' }} onChange={e => { importCsv(e.target.files?.[0]); e.target.value = '' }} />
+              Upload PDF / CSV
+              <input type="file" accept=".pdf,.csv" style={{ display: 'none' }} onChange={e => { importFile(e.target.files?.[0]); e.target.value = '' }} />
             </label>
             {importResult != null && <span style={{ color: '#166534', fontSize: 13 }}>Imported {importResult} license(s).</span>}
           </div>

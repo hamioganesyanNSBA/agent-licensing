@@ -124,10 +124,15 @@ existing importers; mirror those patterns.
 
 Business-entity licenses (NSBA, HSK, …) are on NIPR but NOT in Onyx, so they're
 managed manually: `agency_licenses` table from `supabase/agency.sql` (run
-manually; page shows a setup notice if missing), CRUD + lenient NIPR-style CSV
-import on the Agency Licenses page (editor-gated), expiration badges, and a
-compliance check flagging states with RTS=Y agents but no active agency
-license. Dashboard 30/60/90 boxes append agency expirations as a sub-line.
+manually; page shows a setup notice if missing), CRUD + file import on the
+Agency Licenses page (editor-gated), expiration badges, and a compliance check
+flagging states with RTS=Y agents but no active agency license. The import
+accepts two formats: a NIPR **PDB Detail report PDF**
+(`my-nipr-order-*-detail.pdf`) parsed by `src/lib/niprPdb.js` (pdfjs-dist,
+lazy-loaded; one row per License Summary block per state, entity from the
+report's Name if not typed in) which **replaces** that entity's rows since the
+report is a full snapshot, and the older lenient NIPR-style CSV which appends
+rows. Dashboard 30/60/90 boxes append agency expirations as a sub-line.
 
 ## License renewals (`/renewals`)
 
