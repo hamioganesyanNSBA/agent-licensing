@@ -8,6 +8,10 @@ import { isOperatingState } from './operatingStates.js'
 export const KNOWN_CARRIERS = ['Aetna', 'Anthem', 'Cigna', 'Devoted', 'SCAN', 'UnitedHealthcare', 'Wellcare', 'Zing']
 export const CARRIER_SHORT = { UnitedHealthcare: 'UHC' }
 
+// Ancillary-only carriers (no MA plans) — their appointments live in
+// carrier_appointments but don't belong in the MA coverage/gap math.
+export const ANCILLARY_CARRIERS = new Set(['UnitedHealthOne'])
+
 // The plan year we're currently selling: the calendar year, rolling to next
 // year on Oct 1 when AEP prep makes next-year RTS the thing that matters.
 export function defaultPlanYear() {
@@ -50,6 +54,7 @@ export function buildCoverageModel(licenses, appointments, agents, planYearOverr
   const carriersInData = new Set()
   for (const a of appointments) {
     if (a.plan_year !== planYear || a.rts_status !== 'Y') continue
+    if (ANCILLARY_CARRIERS.has(a.carrier)) continue
     carriersInData.add(a.carrier)
     if (!rtsByNpn.has(a.agent_npn)) rtsByNpn.set(a.agent_npn, new Map())
     const byCarrier = rtsByNpn.get(a.agent_npn)

@@ -382,6 +382,7 @@ const FILE_HINTS = {
   scan:         /scan(?!ned)|agency\s?downlines/i,
   zing:         /zing/i,
   anthem:       /anthem/i,
+  uhone:        /sub\s?producer|uh\s?one|united\s?health\s?one/i,
 }
 
 function chunk(arr, size) {

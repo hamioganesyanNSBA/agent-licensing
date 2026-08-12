@@ -32,6 +32,10 @@ const CARRIER_DISPLAY = {
 
 const asNumberIfNumeric = v => (v != null && /^\d+$/.test(String(v)) ? Number(v) : (v ?? null))
 
+// Ancillary-only carriers (no Medicare Advantage products) — tracked in
+// carrier_appointments but never uploaded to Sunfire.
+const NON_SUNFIRE_CARRIERS = new Set(['UnitedHealthOne'])
+
 // Writing-number rule: every carrier uses the agent's NPN, EXCEPT these two,
 // which have their own carrier-issued writing numbers (Anthem's ETIN from the
 // Anthem RTS report; UHC's from the UHC readiness report).
@@ -48,6 +52,7 @@ export function buildSunfireRows(appointments, agents, activeNpns, { fmo = null 
 
   const groups = new Map()
   for (const a of appointments) {
+    if (NON_SUNFIRE_CARRIERS.has(a.carrier)) continue     // ancillary, not MA
     if (a.rts_status !== 'Y') continue                    // only ready states
     if (!activeNpns.has(a.agent_npn)) continue            // only active agents
     if (!isOperatingState(a.state)) continue              // agency doesn't sell/market there

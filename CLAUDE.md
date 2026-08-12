@@ -97,7 +97,13 @@ RTS=Y when State Status is Active/Certified). The `scan` importer also accepts
 SCAN's newer "Agency Downlines" export (`AgencyDownlines_*.csv`, sniffed by
 header): one row per broker with a comma-packed STATES column; it emits rows
 for BOTH the selected plan year (CURR_YEAR_TRAINING) and the next
-(NEXT_YEAR_TRAINING), and repairs the export's glued header/first-row line. Licenses are **not** imported by
+(NEXT_YEAR_TRAINING), and repairs the export's glued header/first-row line.
+`uhone` imports UnitedHealthOne's "ActiveSubProducers" CSV (ancillary
+products, carrier `UnitedHealthOne`, product_category `Ancillary`,
+Active→RTS Y / Pending→N); because it isn't a Medicare Advantage product, that
+carrier is excluded from the Sunfire export (`NON_SUNFIRE_CARRIERS` in
+`sunfireExport.js`) and from the Coverage gap math (`ANCILLARY_CARRIERS` in
+`coverageModel.js`). Licenses are **not** imported by
 file anymore — see the Onyx sync above.
 
 Each importer module exports:

@@ -69,6 +69,7 @@ export default function Appointments() {
             <option>Cigna</option>
             <option>SCAN</option>
             <option>Zing</option>
+            <option>UnitedHealthOne</option>
           </select>
           <input placeholder="State" value={state} onChange={e => setState(e.target.value.toUpperCase())} style={{ width: 100 }} />
           <select value={year} onChange={e => setYear(parseInt(e.target.value, 10))}>
