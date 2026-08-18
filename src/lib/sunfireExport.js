@@ -28,6 +28,7 @@ const CARRIER_DISPLAY = {
   'Wellcare': ['Centene Corporation', 'Wellcare Health Plans'],
   'SCAN':     ['SCAN Health Plan'],
   'Zing':     ['Zing Health'],
+  'Molina':   ['Molina Healthcare'],
 }
 
 const asNumberIfNumeric = v => (v != null && /^\d+$/.test(String(v)) ? Number(v) : (v ?? null))

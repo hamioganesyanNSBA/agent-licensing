@@ -67,6 +67,7 @@ export default function Appointments() {
             <option>Wellcare</option>
             <option>Anthem</option>
             <option>Cigna</option>
+            <option>Molina</option>
             <option>SCAN</option>
             <option>Zing</option>
             <option>UnitedHealthOne</option>

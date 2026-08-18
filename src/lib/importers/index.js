@@ -9,6 +9,7 @@ import * as wellcare    from './wellcare.js'
 import * as healthspring from './healthspring.js'
 import * as scan        from './scan.js'
 import * as zing        from './zing.js'
+import * as molina      from './molina.js'
 import * as anthem      from './anthem.js'
 import * as uhone       from './uhone.js'
 
@@ -20,6 +21,7 @@ export const IMPORTERS = {
   healthspring,
   scan,
   zing,
+  molina,
   anthem,
   uhone,
 }

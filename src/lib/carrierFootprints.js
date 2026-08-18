@@ -41,6 +41,13 @@ export const CARRIER_FOOTPRINTS = {
     'SC', 'TN', 'TX', 'UT', 'VA', 'WA',
   ]),
 
+  // Molina appoints regionally — state list taken from the full state set in
+  // Molina's own ProStat appointment report (Aug 2026). Re-verify each AEP.
+  Molina: new Set([
+    'AZ', 'CA', 'CT', 'IA', 'ID', 'IL', 'KY', 'MA', 'MI', 'MS', 'NE', 'NM',
+    'NV', 'NY', 'OH', 'SC', 'TX', 'UT', 'VA', 'WA', 'WI',
+  ]),
+
   // Near-national for 2026 — leave unrestricted so real gaps are never hidden:
   // Aetna (MAPD in 43 states + DC), UHC (~national), Wellcare (MA in 32
   // states + national PDP).

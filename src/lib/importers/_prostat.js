@@ -1,5 +1,5 @@
 // Shared parser for the "ProStat" carrier appointment reports (Cigna
-// Healthspring, SCAN, Zing). All share the same columns (0-indexed):
+// Healthspring, SCAN, Zing, Molina). All share the same columns (0-indexed):
 // 0 First Name, 1 Last Name, 2 Producer Type, 3 Sub Type, 4 NPN, 5 Broker
 // Status, 6 Status Reason, 7 LOB, 8 State, 9 State Status, 10 State Status
 // Reason (Zing adds an 11 AEP Status column, which we ignore). Row 0 is the
