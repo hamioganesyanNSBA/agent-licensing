@@ -28,7 +28,8 @@ const CARRIER_DISPLAY = {
   'Wellcare': ['Centene Corporation', 'Wellcare Health Plans'],
   'SCAN':     ['SCAN Health Plan'],
   'Zing':     ['Zing Health'],
-  'Molina':   ['Molina Healthcare'],
+  // Molina intentionally NOT mapped — Sunfire wants plain "Molina",
+  // which is already our internal carrier value.
 }
 
 const asNumberIfNumeric = v => (v != null && /^\d+$/.test(String(v)) ? Number(v) : (v ?? null))
