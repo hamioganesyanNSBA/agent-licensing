@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useUser } from '@clerk/clerk-react'
 import { fetchAll } from '../lib/fetchAll.js'
 import { buildCoverageModel, CARRIER_SHORT as SHORT } from '../lib/coverageModel.js'
+import { useIsEditor } from '../lib/useIsEditor.js'
+import {
+  buildUhcStateAddPlan, requestableRows, downloadUhcForm, recordUhcRequests,
+  REQUEST_COOLDOWN_BUSINESS_DAYS,
+} from '../lib/uhcStateAdds.js'
 import { Th, useSortState, sortCompare } from '../components/SortHeader.jsx'
 
 // Carrier coverage tracking (model in lib/coverageModel.js): green = appointed
@@ -19,17 +25,34 @@ export default function Coverage() {
   const [yearOverride, setYearOverride] = useState(null)   // null = automatic
   const [selCarriers, setSelCarriers] = useState(new Set())  // empty = all carriers
   const [sort, toggleSort] = useSortState('name')
+  const [uhcRequests, setUhcRequests] = useState(null)       // null while loading
+  const [uhcSetupNeeded, setUhcSetupNeeded] = useState(false)
 
   useEffect(() => {
     fetchAll('licenses', 'npn,state,status,expiration_date').then(setLicenses)
-    fetchAll('carrier_appointments', 'agent_npn,carrier,plan_year,state,rts_status').then(setAppointments)
-    fetchAll('agents', 'npn,first_name,last_name').then(setAgents)
+    fetchAll('carrier_appointments', 'agent_npn,carrier,plan_year,state,rts_status,writing_number').then(setAppointments)
+    fetchAll('agents', 'npn,first_name,last_name,email').then(setAgents)
+    loadUhcRequests()
   }, [])
+
+  async function loadUhcRequests() {
+    try {
+      setUhcRequests(await fetchAll('uhc_state_requests', 'agent_npn,state,requested_at'))
+    } catch (e) {
+      if (/does not exist|42P01|schema cache|PGRST205/i.test(e.message || '')) setUhcSetupNeeded(true)
+      setUhcRequests([])
+    }
+  }
 
   const model = useMemo(() => {
     if (!licenses || !appointments || !agents) return null
     return buildCoverageModel(licenses, appointments, agents, yearOverride)
   }, [licenses, appointments, agents, yearOverride])
+
+  const uhcPlan = useMemo(() => {
+    if (!model || !uhcRequests) return null
+    return buildUhcStateAddPlan(model, appointments, agents, uhcRequests)
+  }, [model, appointments, agents, uhcRequests])
 
   if (!model) return <><h1>Coverage</h1><div className="card">Loading…</div></>
 
@@ -95,6 +118,8 @@ export default function Coverage() {
         </div>
       </div>
 
+      <UhcStateAddCard plan={uhcPlan} setupNeeded={uhcSetupNeeded} onRecorded={loadUhcRequests} />
+
       <div className="card">
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
           <button style={chipStyle(selCarriers.size === 0)} onClick={() => setSelCarriers(new Set())}>
@@ -148,6 +173,102 @@ export default function Coverage() {
         </div>
       </div>
     </>
+  )
+}
+
+// UHC requires state adds to be requested on their eAlliance Bulk Non-Resident
+// Appointments spreadsheet. This card fills that form from the coverage model's
+// UHC gaps and logs every downloaded (agent, state) pair so the same request
+// isn't sent twice within the cooldown window.
+function UhcStateAddCard({ plan, setupNeeded, onRecorded }) {
+  const isEditor = useIsEditor()
+  const { user } = useUser()
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+  const [error, setError] = useState('')
+
+  if (!plan) return null
+  const ready = requestableRows(plan)
+  const readyStates = ready.reduce((n, r) => n + r.request.length, 0)
+
+  async function download() {
+    setBusy(true); setError(''); setMsg('')
+    try {
+      const filename = downloadUhcForm(ready)
+      const logged = await recordUhcRequests(ready, user?.primaryEmailAddress?.emailAddress)
+      setMsg(`Downloaded ${filename} — ${ready.length} agent(s), ${logged} state add(s) logged. `
+        + `These are now on hold for ${REQUEST_COOLDOWN_BUSINESS_DAYS} business days.`)
+      onRecorded()
+    } catch (e) {
+      setError(`Form downloaded but logging the requests failed: ${e.message || e}. `
+        + 'Duplicate protection may not cover this batch.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="card" style={{ marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 260 }}>
+          <strong>UHC state adds (eAlliance form)</strong>
+          <div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>
+            {readyStates > 0
+              ? <>{ready.length} agent(s) / {readyStates} state(s) ready to request.</>
+              : <>No state adds to request right now.</>}
+            {plan.pendingPairs > 0 && (
+              <> {plan.pendingPairs} state(s) already requested within the last {REQUEST_COOLDOWN_BUSINESS_DAYS} business
+                days — held back to avoid duplicates; they return automatically if still missing after that.</>
+            )}
+          </div>
+        </div>
+        {isEditor && readyStates > 0 && !setupNeeded && (
+          <button className="btn" onClick={download} disabled={busy}>
+            {busy ? 'Working…' : 'Download eAlliance form (.xlsx)'}
+          </button>
+        )}
+      </div>
+      {setupNeeded && (
+        <div style={{ color: '#92400e', fontSize: 13, marginTop: 8 }}>
+          Setup needed: run <code>supabase/uhc_requests.sql</code> in the Supabase SQL editor to enable
+          the request log (duplicate protection). The download is disabled until then.
+        </div>
+      )}
+      {msg && <div style={{ color: '#166534', fontSize: 13, marginTop: 8 }}>{msg}</div>}
+      {error && <div style={{ color: '#991b1b', fontSize: 13, marginTop: 8 }}>{error}</div>}
+      {readyStates > 0 && (
+        <details style={{ marginTop: 8 }}>
+          <summary style={{ cursor: 'pointer', fontSize: 13, color: '#475569' }}>
+            What goes on the form
+          </summary>
+          <div style={{ display: 'grid', gap: 4, marginTop: 6, fontSize: 13 }}>
+            {ready.map(r => (
+              <div key={r.npn}>
+                <Link to={`/agents/${r.npn}`}>{r.name}</Link>
+                <span style={{ color: '#64748b' }}> (ID {r.writing}) — {r.request.join(', ')}</span>
+                {r.pending.length > 0 && (
+                  <span style={{ color: '#94a3b8' }}> · on hold: {r.pending.join(', ')}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+      {plan.noWritingId.length > 0 && (
+        <details style={{ marginTop: 8 }}>
+          <summary style={{ cursor: 'pointer', fontSize: 13, color: '#92400e' }}>
+            {plan.noWritingId.length} licensed agent(s) with no UHC writing ID — need UHC contracting, not a state add
+          </summary>
+          <div style={{ display: 'grid', gap: 4, marginTop: 6, fontSize: 13, color: '#64748b' }}>
+            {plan.noWritingId.map(a => (
+              <div key={a.npn}>
+                <Link to={`/agents/${a.npn}`}>{a.name}</Link> — licensed in {a.missing.join(', ')}
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+    </div>
   )
 }
 

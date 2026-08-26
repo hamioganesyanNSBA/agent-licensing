@@ -98,6 +98,11 @@ SCAN's newer "Agency Downlines" export (`AgencyDownlines_*.csv`, sniffed by
 header): one row per broker with a comma-packed STATES column; it emits rows
 for BOTH the selected plan year (CURR_YEAR_TRAINING) and the next
 (NEXT_YEAR_TRAINING), and repairs the export's glued header/first-row line.
+`anthem` imports the Anthem "Agent_Relationship_Report" CSV (hierarchy export,
+name-matched to the roster since it has no NPN column); only rows under the
+current upline INNOVATIVE FINANCIAL PARTNERS LLC (`H_Parent_Name`) import —
+other uplines are skipped, and active roster agents found under one are
+returned in `wrongUpline` and shown on the Imports page for outreach.
 `uhone` imports UnitedHealthOne's "ActiveSubProducers" CSV (ancillary
 products, carrier `UnitedHealthOne`, product_category `Ancillary`,
 Active→RTS Y / Pending→N); because it isn't a Medicare Advantage product, that
@@ -187,6 +192,22 @@ paginated detail, and a multi-sheet .xlsx report download. Table
 `licensing_costs` from `supabase/costs.sql` (run manually; page shows a setup
 notice if missing). Parsing lives in `src/lib/sirconCosts.js`. The exports
 contain SSN/EIN columns — these are deliberately never stored.
+
+## UHC state-add requests (Coverage page)
+
+UHC state adds are requested on their "eAlliance Bulk Non-Resident
+Appointments" spreadsheet. A card on the Coverage page fills that form from
+the coverage model's UHC gaps (licensed + operating state, no RTS=Y):
+`src/lib/uhcStateAdds.js` builds the plan, generates the .xlsx (template
+layout: header row 7, example row 8, agents from row 9, columns B–F =
+first/last/writing ID/email/comma-separated states), and logs each downloaded
+(agent, state) pair to `uhc_state_requests` (`supabase/uhc_requests.sql`, run
+manually; card shows a setup notice if missing). Pairs requested within the
+last 10 business days (`REQUEST_COOLDOWN_BUSINESS_DAYS`) are held out of new
+forms to prevent duplicate requests; still-missing states become requestable
+again after that. Agents with UHC gaps but no UHC writing ID can't go on the
+form (they need contracting first) and are listed separately on the card.
+Download + logging is editor-gated.
 
 ## Non-operating states (`src/lib/operatingStates.js`)
 
