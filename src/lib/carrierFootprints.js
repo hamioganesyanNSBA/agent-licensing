@@ -41,11 +41,14 @@ export const CARRIER_FOOTPRINTS = {
     'SC', 'TN', 'TX', 'UT', 'VA', 'WA',
   ]),
 
-  // Molina appoints regionally — state list taken from the full state set in
-  // Molina's own ProStat appointment report (Aug 2026). Re-verify each AEP.
+  // Molina's 2026 Medicare Advantage / D-SNP markets — 20 states, from
+  // molinamedicareplans.com's state selector + Molina's 2026 D-SNP market
+  // list (Aug 2026). Molina's ProStat report also lists states from its
+  // non-MA lines (e.g. VA, Medicaid-only) — those must NOT count as coverage
+  // gaps, so don't rebuild this list from the report. Re-verify each AEP.
   Molina: new Set([
     'AZ', 'CA', 'CT', 'IA', 'ID', 'IL', 'KY', 'MA', 'MI', 'MS', 'NE', 'NM',
-    'NV', 'NY', 'OH', 'SC', 'TX', 'UT', 'VA', 'WA', 'WI',
+    'NV', 'NY', 'OH', 'SC', 'TX', 'UT', 'WA', 'WI',
   ]),
 
   // Near-national for 2026 — leave unrestricted so real gaps are never hidden:

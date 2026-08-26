@@ -12,6 +12,7 @@
 //   - NPN / numeric writing numbers are written as numbers, like the sample.
 import * as XLSX from 'xlsx'
 import { isOperatingState } from './operatingStates.js'
+import { activeLicensedStatesByNpn } from './coverageModel.js'
 
 const COLUMNS = [
   'Agent NPN','First Name','Last Name','Email','Carrier','Plan Year',
@@ -47,10 +48,18 @@ const OWN_WRITING_NUMBER = new Set(['UnitedHealthcare', 'Anthem'])
  * appointments: rows from carrier_appointments (all years).
  * agents:       rows from the agents table (npn, first_name, last_name, email) —
  *               the active Onyx roster; also the source of truth for emails.
- * activeNpns:   Set of NPNs considered active (NPNs present in licenses table).
+ * licenses:     rows from the licenses table (npn, state, status,
+ *               expiration_date) — the Onyx sync mirror. An NPN present at all
+ *               = active agent; beyond that, a state exports only if the agent
+ *               holds an Active, unexpired license there. Carrier RTS reports
+ *               lag license changes, so Onyx wins when they disagree — a
+ *               missing/inactive/expired license blocks the state even when
+ *               the carrier file says RTS=Y.
  */
-export function buildSunfireRows(appointments, agents, activeNpns, { fmo = null } = {}) {
+export function buildSunfireRows(appointments, agents, licenses, { fmo = null } = {}) {
   const agentByNpn = new Map(agents.map(a => [a.npn, a]))
+  const activeNpns = new Set(licenses.map(l => l.npn))
+  const licensedByNpn = activeLicensedStatesByNpn(licenses)
 
   const groups = new Map()
   for (const a of appointments) {
@@ -58,6 +67,7 @@ export function buildSunfireRows(appointments, agents, activeNpns, { fmo = null 
     if (a.rts_status !== 'Y') continue                    // only ready states
     if (!activeNpns.has(a.agent_npn)) continue            // only active agents
     if (!isOperatingState(a.state)) continue              // agency doesn't sell/market there
+    if (!licensedByNpn.get(a.agent_npn)?.has(a.state)) continue // no active Onyx license — stale RTS state
     const key = `${a.agent_npn}|${a.carrier}|${a.plan_year}`
     let g = groups.get(key)
     if (!g) {

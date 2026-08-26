@@ -10,14 +10,13 @@ export default function SunfireExport() {
   async function run({ download }) {
     setBusy(true)
     try {
-      const [appointments, agents, licenseNpns] = await Promise.all([
+      const [appointments, agents, licenses] = await Promise.all([
         fetchAll('carrier_appointments',
           'agent_npn,first_name,last_name,email,carrier,plan_year,writing_number,state,product_category,rts_status'),
         fetchAll('agents', 'npn,first_name,last_name,email'),
-        fetchAll('licenses', 'npn'),
+        fetchAll('licenses', 'npn,state,status,expiration_date'),
       ])
-      const activeNpns = new Set(licenseNpns.map(r => r.npn))
-      const rows = buildSunfireRows(appointments, agents, activeNpns)
+      const rows = buildSunfireRows(appointments, agents, licenses)
       setTotal(rows.length)
       setPreview(rows.slice(0, 25))
       if (download) {
@@ -38,8 +37,10 @@ export default function SunfireExport() {
       <div className="card">
         <p>
           Generates the <code>NSBA_RTS_*.xlsx</code> file to upload to Sunfire. Includes only
-          active agents and only states where they are ready to sell (RTS = Y); every appointed
-          state carries all products (MA; PDP; CSNP; DSNP).
+          active agents and only states where they are ready to sell (RTS = Y) <em>and</em> hold
+          an active, unexpired license per the Onyx sync — carrier RTS reports lag license
+          changes, so a state with no active license is dropped even if the carrier file lists
+          it. Every appointed state carries all products (MA; PDP; CSNP; DSNP).
         </p>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <button className="btn-secondary btn" disabled={busy} onClick={() => run({ download: false })}>Preview</button>

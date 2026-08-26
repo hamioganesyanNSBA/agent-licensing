@@ -30,20 +30,26 @@ export function activePlanYear(years) {
   return years.length ? Math.max(...years) : target
 }
 
-export function buildCoverageModel(licenses, appointments, agents, planYearOverride = null) {
+// Active licensed states per NPN (usable license = Active and not expired),
+// straight from the Onyx-synced licenses table. States the agency doesn't
+// operate in are excluded — no appointments are pursued there. Shared with
+// the Sunfire export, where Onyx licensing caps what carrier RTS reports may
+// claim (their state lists lag license changes).
+export function activeLicensedStatesByNpn(licenses) {
   const today = new Date().toISOString().slice(0, 10)
-
-  // Active licensed states per NPN (usable license = Active and not expired).
-  // States the agency doesn't operate in are excluded — no appointments are
-  // pursued there, so they must not count as coverage gaps.
-  const licensedByNpn = new Map()
+  const byNpn = new Map()
   for (const l of licenses) {
     if (l.status !== 'Active') continue
     if (l.expiration_date && l.expiration_date < today) continue
     if (!isOperatingState(l.state)) continue
-    if (!licensedByNpn.has(l.npn)) licensedByNpn.set(l.npn, new Set())
-    licensedByNpn.get(l.npn).add(l.state)
+    if (!byNpn.has(l.npn)) byNpn.set(l.npn, new Set())
+    byNpn.get(l.npn).add(l.state)
   }
+  return byNpn
+}
+
+export function buildCoverageModel(licenses, appointments, agents, planYearOverride = null) {
+  const licensedByNpn = activeLicensedStatesByNpn(licenses)
 
   // The working plan year drives the comparison (overridable from the UI).
   const planYear = planYearOverride
