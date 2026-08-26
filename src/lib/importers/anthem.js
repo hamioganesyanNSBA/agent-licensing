@@ -5,13 +5,17 @@
 // 2 C_Writing_Etin, 3 D_Writing_Name, then paid/parent/hierarchy columns.
 // Row 0 is the header; file uses \r\n endings, which readCsv normalizes.
 //
-// Rule: any row with a state (col A) and a writing number (col C) counts as
-// appointed (rts_status = Y). The writing number (C_Writing_Etin) flows to the
-// Sunfire export. The agency-level row (NATIONAL SENIOR BENEFIT ADVISORS) is
-// skipped, and writing names that don't resolve to an active agent are skipped
-// and returned in `unmatched` (they're departed / non-Onyx agents).
-// Rows whose H_Parent_Name (col H) is BENEFIT PLANS OF AMERICA LLC are skipped
-// entirely — that's an old upline and those appointments are no longer valid.
+// Rule: only rows whose H_Parent_Name (col H) is our current upline,
+// INNOVATIVE FINANCIAL PARTNERS LLC, count as appointed (rts_status = Y) —
+// every other upline (Premier Senior Marketing, Benefit Plans of America, …)
+// is a leftover of an old hierarchy and is skipped entirely. The writing
+// number (C_Writing_Etin) flows to the Sunfire export. The agency-level row
+// (NATIONAL SENIOR BENEFIT ADVISORS) is skipped, and writing names under the
+// current upline that don't resolve to an active agent are skipped and
+// returned in `unmatched` (they're departed / non-Onyx agents).
+// Skipped rows that DO resolve to an active roster agent are returned in
+// `wrongUpline` (npn/name/uplines/states) so we can reach out and get their
+// Anthem appointment moved under the current upline.
 import { readCsv, clean } from '../parse.js'
 import { toStateCode } from '../states.js'
 import { fetchAll } from '../fetchAll.js'
@@ -24,7 +28,7 @@ export const meta = {
 }
 
 const AGENCY = 'NATIONAL SENIOR BENEFIT ADVISORS'
-const OLD_UPLINE = 'BENEFIT PLANS OF AMERICA LLC'   // col H — no longer valid
+const CURRENT_UPLINE = 'INNOVATIVE FINANCIAL PARTNERS LLC'   // col H — only valid upline
 const SUFFIX = new Set(['JR', 'SR', 'II', 'III', 'IV', 'V'])
 const norm = s => (s || '').toUpperCase().replace(/[.,'’]/g, '').replace(/-/g, ' ').replace(/\s+/g, ' ').trim()
 const tokens = s => norm(s).split(' ').filter(t => t && !SUFFIX.has(t))
@@ -71,6 +75,7 @@ export async function parseFile(file, opts = {}) {
 
   const byConflict = new Map()   // dedupe on (npn, state) — carrier/year/product are constant
   const unmatched = new Map()
+  const wrongUpline = new Map()  // npn -> roster agents parked under a non-current upline
   for (let i = 1; i < rows.length; i++) {   // row 0 = header
     const r = rows[i]
     const state   = toStateCode(r[0])   // A_State
@@ -78,7 +83,25 @@ export async function parseFile(file, opts = {}) {
     const name    = clean(r[3])         // D_Writing_Name
     if (!state || !writing || !name) continue
     if (name.toUpperCase() === AGENCY) continue
-    if ((clean(r[7]) || '').toUpperCase() === OLD_UPLINE) continue   // H_Parent_Name: old upline
+    const upline = norm(clean(r[7]))    // H_Parent_Name
+    if (upline !== CURRENT_UPLINE) {
+      // Not under our current upline — don't import, but flag active roster
+      // agents so we can reach out and fix their appointment.
+      const npn = resolveNpn(name, idx)
+      if (npn) {
+        const agent = npnMap.get(npn)
+        const flag = wrongUpline.get(npn) || {
+          npn,
+          name: [agent?.first_name, agent?.last_name].filter(Boolean).join(' ') || name,
+          uplines: new Set(),
+          states: new Set(),
+        }
+        if (upline) flag.uplines.add(upline)
+        flag.states.add(state)
+        wrongUpline.set(npn, flag)
+      }
+      continue
+    }
     const npn = resolveNpn(name, idx)
     if (!npn) { unmatched.set(name, (unmatched.get(name) || 0) + 1); continue }
     const agent = npnMap.get(npn)
@@ -95,5 +118,11 @@ export async function parseFile(file, opts = {}) {
       rts_status: 'Y',
     })
   }
-  return { appointments: [...byConflict.values()], unmatched: [...unmatched.keys()].sort() }
+  return {
+    appointments: [...byConflict.values()],
+    unmatched: [...unmatched.keys()].sort(),
+    wrongUpline: [...wrongUpline.values()]
+      .map(f => ({ ...f, uplines: [...f.uplines].sort(), states: [...f.states].sort() }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  }
 }

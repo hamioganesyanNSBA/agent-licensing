@@ -155,6 +155,7 @@ export default function Imports() {
         licenses:     parsed.licenses?.length     || 0,
         appointments: parsed.appointments?.length || 0,
         unmatched:    parsed.unmatched || null,
+        wrongUpline:  parsed.wrongUpline || null,
         autoConfirmed: auto.confirmed,
         autoCompleted: auto.completed,
         diff,
@@ -308,6 +309,20 @@ export default function Imports() {
               <div style={{ color: '#92400e', marginTop: 8, fontSize: 13 }}>
                 {result.unmatched.length} writing name(s) skipped — no matching active agent:
                 <div style={{ marginTop: 4, color: '#64748b' }}>{result.unmatched.join(', ')}</div>
+              </div>
+            )}
+            {result.wrongUpline?.length > 0 && (
+              <div style={{ color: '#b91c1c', marginTop: 8, fontSize: 13 }}>
+                {result.wrongUpline.length} active agent(s) are on this report under a different
+                upline — not imported. Reach out so they complete their Anthem appointment under
+                Innovative Financial Partners:
+                <ul style={{ marginTop: 4, marginBottom: 0, paddingLeft: 18, color: '#7f1d1d' }}>
+                  {result.wrongUpline.map(f => (
+                    <li key={f.npn}>
+                      <strong>{f.name}</strong> (NPN {f.npn}) — under {f.uplines.join(' / ')} in {f.states.join(', ')}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </div>
