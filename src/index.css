@@ -123,6 +123,7 @@ input:focus, select:focus { outline: none; border-color: var(--nsba-blue); box-s
 .badge-y { background: #dcfce7; color: #166534; }
 .badge-n { background: #fee2e2; color: #991b1b; }
 .badge-warn { background: #fef3c7; color: #92400e; }
+.badge-res { background: #dbeafe; color: #1e40af; }   /* resident-state license */
 
 @keyframes urgentPulse {
   0%, 100% { transform: scale(1); opacity: 1; }

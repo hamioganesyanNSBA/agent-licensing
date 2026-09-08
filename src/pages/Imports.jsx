@@ -263,6 +263,16 @@ export default function Imports() {
             Synced — {syncResult.agents} agents, {syncResult.licenses} licenses
             {syncResult.detail_failures ? `, ${syncResult.detail_failures} agents skipped (fetch error)` : ''}
             {syncResult.pruned_agents ? `; removed ${syncResult.pruned_agents} departed agent(s)` : ''}.
+            {syncResult.residency_column_missing ? (
+              <span style={{ color: '#92400e' }}>
+                {' '}Resident states were not saved: the <code>licenses.is_resident</code> column is missing — run the
+                latest <code>supabase/schema.sql</code> in the Supabase SQL editor, then sync again.
+              </span>
+            ) : syncResult.residency_known === 0 && syncResult.licenses > 0 && (
+              <span style={{ color: '#92400e' }}>
+                {' '}Onyx returned no resident/non-resident flag on any license — resident states will show as unknown.
+              </span>
+            )}
           </div>
         )}
       </div>

@@ -15,12 +15,7 @@ expiration status; and exports agent readiness data for Sunfire.
 
 ## Commands
 
-- `npm run dev` — Vite dev server
-- `npm run build` — production build
-- `npm run preview` — preview the build
-- `npm run lint` — ESLint
-
-There is no test suite.
+Standard Vite scripts — see `package.json`. There is no test suite.
 
 ## Environment variables (all `VITE_`-prefixed, client-exposed)
 
@@ -34,12 +29,8 @@ There is no test suite.
 
 ## Layout
 
-- `src/main.jsx` — providers: `ClerkProvider` → `BrowserRouter` → `App`.
 - `src/App.jsx` — sidebar nav, routes, `AdminGate` (admin-email gate).
-- `src/pages/` — one component per route: `Dashboard`, `Agents`, `AgentDetail`
-  (`/agents/:npn`), `Licenses`, `Appointments`, `Imports`, `SunfireExport`.
-- `src/components/` — `USMap`, `Pagination`.
-- `src/lib/` — data + domain helpers (below).
+- `src/pages/` — one component per route; `src/lib/` — data + domain helpers (below).
 - `src/index.css` — all styling (plain CSS, NSBA brand colors, `.card`/`.btn`
   classes). No CSS framework; components also use inline `style` objects.
 - `supabase/schema.sql` — full DB schema, run manually in the Supabase SQL editor.
@@ -86,6 +77,13 @@ if the active list is empty (so an API hiccup can't wipe the tables). Server-onl
 env vars: `ONYX_API_KEY`, `SUPABASE_SERVICE_KEY` (falls back to anon), optional
 `ONYX_ORG`/`ONYX_API_BASE`/`CRON_SECRET`. The API doesn't expose `license_type`,
 `issue_date`, or `status_date/reason`, so those columns are null on synced rows.
+`licenses.is_resident` (NIPR resident/non-resident flag; null = unknown) is
+mapped from the API's `is_resident` when present — the sync probes for the
+column first and drops the field if the ALTER in `schema.sql` hasn't been run,
+so an out-of-date database can't break the delete-then-insert. Resident state
+per agent is derived client-side by `src/lib/residency.js` (active resident
+license first) and shown on the Agents list, Licenses page (filter + column),
+and agent profile.
 
 ## Importers (`src/lib/importers/`)
 

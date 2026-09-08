@@ -22,9 +22,13 @@ create table if not exists licenses (
   status          text,
   status_date     date,
   status_reason   text,
+  is_resident     boolean,          -- true = agent's resident-state license (from Onyx/NIPR); null = unknown
   imported_at     timestamptz default now(),
   unique (npn, state, license_number, loa)
 );
+
+-- Added after initial rollout; safe to re-run on an existing database.
+alter table licenses add column if not exists is_resident boolean;
 create index if not exists licenses_npn_idx        on licenses(npn);
 create index if not exists licenses_state_idx      on licenses(state);
 create index if not exists licenses_expiration_idx on licenses(expiration_date);

@@ -115,6 +115,9 @@ export default async function handler(req, res) {
             status:          lic.is_active ? 'Active' : 'Inactive',
             status_date:     null,
             status_reason:   null,
+            // NIPR residency flag. Null (not false) when the API omits the
+            // field so the UI can tell "non-resident" from "unknown".
+            is_resident:     typeof lic.is_resident === 'boolean' ? lic.is_resident : null,
           })
         }
       }
@@ -137,7 +140,18 @@ export default async function handler(req, res) {
     for (const l of licenseRows) {
       licMap.set(`${l.npn}|${l.state}|${l.license_number}|${l.loa}`, l)
     }
-    const dedupLicenses = [...licMap.values()]
+    let dedupLicenses = [...licMap.values()]
+    let residency_known = dedupLicenses.filter(l => l.is_resident !== null).length
+
+    // `licenses.is_resident` was added after the initial rollout. If the
+    // database hasn't run that ALTER yet, drop the field rather than failing
+    // the insert (which runs *after* the delete below and would empty the table).
+    const probe = await supabase.from('licenses').select('is_resident').limit(1)
+    const residency_column_missing = !!probe.error && /is_resident/.test(probe.error.message || '')
+    if (residency_column_missing) {
+      dedupLicenses = dedupLicenses.map(({ is_resident, ...rest }) => rest)
+      residency_known = 0
+    }
 
     for (const c of chunk(dedupAgents, 500)) {
       const { error } = await supabase.from('agents').upsert(c, { onConflict: 'npn' })
@@ -176,7 +190,10 @@ export default async function handler(req, res) {
       row_count: dedupLicenses.length,
       imported_by,
       notes: `Onyx sync: ${dedupAgents.length} agents, ${dedupLicenses.length} licenses, `
-        + `${failed} detail failures, pruned ${pruned_agents} agents / ${pruned_licenses} licenses`,
+        + `${failed} detail failures, pruned ${pruned_agents} agents / ${pruned_licenses} licenses, `
+        + (residency_column_missing
+            ? 'licenses.is_resident column missing — run supabase/schema.sql'
+            : `residency known on ${residency_known} licenses`),
     })
 
     return res.status(200).json({
@@ -184,6 +201,8 @@ export default async function handler(req, res) {
       agents: dedupAgents.length,
       licenses: dedupLicenses.length,
       detail_failures: failed,
+      residency_known,
+      residency_column_missing,
       pruned_agents,
       pruned_licenses,
     })

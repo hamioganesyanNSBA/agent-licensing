@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { EXPIRING_WINDOW_DAYS, expiringLicenses, daysUntil } from '../lib/renewals.js'
+import { residentStateOf, residencyUnknown } from '../lib/residency.js'
 
 export default function AgentDetail() {
   const { npn } = useParams()
@@ -32,13 +33,21 @@ export default function AgentDetail() {
   })
 
   const expiring = expiringLicenses(licenses)
+  const residentState = residentStateOf(licenses)
   const expiringDates = new Set(expiring.map(l => `${l.state}|${l.expiration_date}`))
 
   return (
     <>
       <Link to="/agents">← Agents</Link>
       <h1>{agent.first_name} {agent.last_name}</h1>
-      <p style={{ color: '#64748b' }}>NPN {agent.npn} · {agent.email}</p>
+      <p style={{ color: '#64748b' }}>
+        NPN {agent.npn} · {agent.email} · Resident state:{' '}
+        {residentState
+          ? <span className="badge badge-res">{residentState}</span>
+          : <span title={residencyUnknown(licenses) ? 'Populated by the next Onyx sync' : 'No resident license found in Onyx'}>
+              {residencyUnknown(licenses) ? 'unknown (pending sync)' : '—'}
+            </span>}
+      </p>
 
       {expiring.length > 0 && (
         <div className="card" style={{ borderColor: '#fcd34d', background: '#fffbeb',
@@ -83,7 +92,10 @@ export default function AgentDetail() {
           <tbody>
             {filteredLicenses.map((r, i) => (
               <tr key={i}>
-                <td>{r.state}</td><td>{r.license_type}</td><td>{r.loa}</td>
+                <td style={{ whiteSpace: 'nowrap' }}>
+                  {r.state}{r.is_resident === true && <span className="badge badge-res" style={{ marginLeft: 6 }}>Resident</span>}
+                </td>
+                <td>{r.license_type}</td><td>{r.loa}</td>
                 <td>{r.license_number}</td>
                 <td><span className={`badge ${r.status === 'Active' ? 'badge-y' : 'badge-n'}`}>{r.status}</span></td>
                 <td style={expiringDates.has(`${r.state}|${r.expiration_date}`)

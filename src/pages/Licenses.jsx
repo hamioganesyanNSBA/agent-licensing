@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { fetchAll } from '../lib/fetchAll.js'
+import { fetchLicensesWithResidency } from '../lib/residency.js'
 import Pagination from '../components/Pagination.jsx'
 
 const PER_PAGE = 20
@@ -9,6 +9,7 @@ const COLUMNS = [
   { key: 'licensee_name',   label: 'Licensee' },
   { key: 'npn',             label: 'NPN' },
   { key: 'state',           label: 'State' },
+  { key: 'residency',       label: 'Residency' },
   { key: 'license_type',    label: 'Type' },
   { key: 'loa',             label: 'LOA' },
   { key: 'license_number',  label: 'Number' },
@@ -23,16 +24,21 @@ export default function Licenses() {
   const [state, setState] = useState(searchParams.get('state') || '')
   const [status, setStatus] = useState(searchParams.get('status') ?? 'Active')
   const [expiringDays, setExpiringDays] = useState(searchParams.get('expiring') || '')
+  const [residency, setResidency] = useState(searchParams.get('residency') || '')
   const [sort, setSort] = useState({ key: 'expiration_date', dir: 'asc' })
   const [page, setPage] = useState(1)
 
   // Load the whole table once (paginated past Supabase's 1000-row cap);
   // all filtering happens client-side so nothing is ever truncated.
   useEffect(() => {
-    fetchAll('licenses', 'npn,licensee_name,state,license_type,loa,license_number,status,expiration_date')
-      .then(setRows)
+    fetchLicensesWithResidency('npn,licensee_name,state,license_type,loa,license_number,status,expiration_date')
+      .then(data => setRows(data.map(r => ({
+        ...r,
+        // Sortable/filterable label for the NIPR residency flag.
+        residency: r.is_resident === true ? 'Resident' : r.is_resident === false ? 'Non-resident' : null,
+      }))))
   }, [])
-  useEffect(() => { setPage(1) }, [q, state, status, expiringDays, sort])
+  useEffect(() => { setPage(1) }, [q, state, status, expiringDays, residency, sort])
 
   function toggleSort(key) {
     setSort(s => s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' })
@@ -42,6 +48,7 @@ export default function Licenses() {
     let out = rows
     if (state)  out = out.filter(r => r.state === state)
     if (status) out = out.filter(r => r.status === status)
+    if (residency) out = out.filter(r => r.residency === residency)
     if (expiringDays) {
       const today = new Date().toISOString().slice(0, 10)
       const future = new Date(Date.now() + parseInt(expiringDays, 10) * 86400000).toISOString().slice(0, 10)
@@ -61,7 +68,7 @@ export default function Licenses() {
       if (bv == null) return -1
       return String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: 'base' }) * mul
     })
-  }, [rows, q, state, status, expiringDays, sort])
+  }, [rows, q, state, status, expiringDays, residency, sort])
 
   const slice = visible.slice((page - 1) * PER_PAGE, page * PER_PAGE)
 
@@ -76,6 +83,11 @@ export default function Licenses() {
             <option value="">All statuses</option>
             <option>Active</option>
             <option>Inactive</option>
+          </select>
+          <select value={residency} onChange={e => setResidency(e.target.value)}>
+            <option value="">Resident + non-resident</option>
+            <option value="Resident">Resident only</option>
+            <option value="Non-resident">Non-resident only</option>
           </select>
           <select value={expiringDays} onChange={e => setExpiringDays(e.target.value)}>
             <option value="">All expirations</option>
@@ -100,6 +112,9 @@ export default function Licenses() {
             {slice.map((r, i) => (
               <tr key={i}>
                 <td>{r.licensee_name}</td><td>{r.npn}</td><td>{r.state}</td>
+                <td>{r.residency === 'Resident'
+                  ? <span className="badge badge-res">Resident</span>
+                  : <span style={{ color: '#94a3b8', fontSize: 12 }}>{r.residency === 'Non-resident' ? 'Non-resident' : '—'}</span>}</td>
                 <td>{r.license_type}</td><td>{r.loa}</td><td>{r.license_number}</td>
                 <td><span className={`badge ${r.status === 'Active' ? 'badge-y' : 'badge-n'}`}>{r.status}</span></td>
                 <td>{r.expiration_date}</td>

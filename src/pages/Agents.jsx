@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fetchAll } from '../lib/fetchAll.js'
 import { buildCoverageModel, CARRIER_SHORT } from '../lib/coverageModel.js'
+import { residentStatesByNpn, residencyUnknown, fetchLicensesWithResidency } from '../lib/residency.js'
 import { Th, useSortState, sortCompare } from '../components/SortHeader.jsx'
 import Pagination from '../components/Pagination.jsx'
 
@@ -11,6 +12,7 @@ const COLUMNS = [
   { key: 'sortName', label: 'Name' },
   { key: 'npn',      label: 'NPN' },
   { key: 'email',    label: 'Email' },
+  { key: 'residentState', label: 'Resident state' },
   { key: 'gapCount', label: 'Missing appointments' },
 ]
 
@@ -24,7 +26,7 @@ export default function Agents() {
 
   useEffect(() => {
     fetchAll('agents', 'npn,first_name,last_name,email').then(setAgents)
-    fetchAll('licenses', 'npn,state,status,expiration_date').then(setLicenses)
+    fetchLicensesWithResidency('npn,state,status,expiration_date').then(setLicenses)
     fetchAll('carrier_appointments', 'agent_npn,carrier,plan_year,state,rts_status').then(setAppointments)
   }, [])
 
@@ -34,6 +36,7 @@ export default function Agents() {
     if (!agents || !licenses || !appointments) return null
     const coverage = buildCoverageModel(licenses, appointments, agents)
     const licensedNpns = new Set(licenses.map(l => l.npn))
+    const resident = residentStatesByNpn(licenses)
     return agents
       .filter(a => licensedNpns.has(a.npn))
       .map(a => {
@@ -41,6 +44,7 @@ export default function Agents() {
         return {
           ...a,
           sortName: `${a.last_name || ''}, ${a.first_name || ''}`,
+          residentState: resident.get(a.npn) || null,
           gapCount: cov ? cov.gapCount : null,   // null = no active licenses
           gaps: cov ? cov.cells.filter(c => c.level === 'none' || c.level === 'partial') : [],
         }
@@ -48,6 +52,7 @@ export default function Agents() {
   }, [agents, licenses, appointments])
 
   if (!rows) return <><h1>Agents</h1><div className="card">Loading…</div></>
+  const noResidency = residencyUnknown(licenses)
 
   const filtered = rows.filter(a => {
     if (!q) return true
@@ -68,6 +73,11 @@ export default function Agents() {
         <p style={{ color: '#64748b', fontSize: 13, marginTop: 8 }}>
           {filtered.length} agents · red = no appointments with that carrier, amber = missing some states · hover a chip for the states
         </p>
+        {noResidency && (
+          <p style={{ color: '#92400e', fontSize: 13, marginTop: -4 }}>
+            Resident states are unknown until the next Onyx sync populates them (run “Sync from Onyx” on the Imports page).
+          </p>
+        )}
         <table>
           <thead>
             <tr>{COLUMNS.map(c => <Th key={c.key} col={c} sort={sort} onToggle={toggleSort} />)}</tr>
@@ -78,6 +88,11 @@ export default function Agents() {
                 <td style={{ whiteSpace: 'nowrap' }}><Link to={`/agents/${a.npn}`}>{a.last_name}, {a.first_name}</Link></td>
                 <td>{a.npn}</td>
                 <td>{a.email}</td>
+                <td>
+                  {a.residentState
+                    ? <span className="badge badge-res" title="Resident-state license">{a.residentState}</span>
+                    : <span style={{ color: '#94a3b8' }}>{noResidency ? 'unknown' : '—'}</span>}
+                </td>
                 <td>
                   {a.gapCount === null ? <span style={{ color: '#94a3b8' }}>no active licenses</span>
                     : a.gapCount === 0 ? <span className="badge badge-y">fully appointed</span>
