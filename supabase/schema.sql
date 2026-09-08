@@ -1,5 +1,6 @@
 -- Agent Licensing schema. Run in Supabase SQL editor.
 
+-- Safe to re-run in full: every statement below is idempotent.
 create table if not exists agents (
   npn            text primary key,
   first_name     text,
@@ -74,7 +75,11 @@ alter table import_runs          enable row level security;
 
 -- Permissive policies for now (admin-only app, gated by Clerk client-side).
 -- TIGHTEN THESE before exposing the anon key publicly.
+drop policy if exists "anon all agents" on agents;
 create policy "anon all agents"        on agents               for all using (true) with check (true);
+drop policy if exists "anon all licenses" on licenses;
 create policy "anon all licenses"      on licenses             for all using (true) with check (true);
+drop policy if exists "anon all appointments" on carrier_appointments;
 create policy "anon all appointments"  on carrier_appointments for all using (true) with check (true);
+drop policy if exists "anon all imports" on import_runs;
 create policy "anon all imports"       on import_runs          for all using (true) with check (true);
