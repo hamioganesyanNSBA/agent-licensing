@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { EXPIRING_WINDOW_DAYS, expiringLicenses, daysUntil } from '../lib/renewals.js'
 import { residentStateOf, residencyUnknown } from '../lib/residency.js'
+import { STATUS as CONTRACT_STATUS, isOpen as isOpenIssue } from '../lib/contracting.js'
 
 export default function AgentDetail() {
   const { npn } = useParams()
@@ -10,6 +11,7 @@ export default function AgentDetail() {
   const [licenses, setLicenses] = useState([])
   const [appts, setAppts] = useState([])
   const [licenseFilter, setLicenseFilter] = useState('active')
+  const [issues, setIssues] = useState([])   // open contracting cases (empty if table missing)
 
   useEffect(() => { load() }, [npn])
 
@@ -22,6 +24,12 @@ export default function AgentDetail() {
     setAgent(a.data)
     setLicenses(l.data || [])
     setAppts(ap.data || [])
+    // Contracting cases are optional (table may not be set up yet) — never block the page.
+    try {
+      const { data } = await supabase.from('contracting_issues')
+        .select('id,carrier,status,reason').eq('agent_npn', npn).order('carrier')
+      setIssues((data || []).filter(isOpenIssue))
+    } catch { setIssues([]) }
   }
 
   if (!agent) return <div><Link to="/agents">← Agents</Link><p>Loading…</p></div>
@@ -48,6 +56,25 @@ export default function AgentDetail() {
               {residencyUnknown(licenses) ? 'unknown (pending sync)' : '—'}
             </span>}
       </p>
+
+      {issues.length > 0 && (
+        <div className="card" style={{ borderColor: '#fca5a5', background: '#fef2f2',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div>
+            <strong>⚠ {issues.length} open contracting issue{issues.length === 1 ? '' : 's'}:</strong>{' '}
+            {issues.map(i => {
+              const st = CONTRACT_STATUS[i.status] || { label: i.status, badge: 'badge-warn' }
+              return (
+                <Link key={i.id} to={`/contracting/${i.id}`} className={`badge ${st.badge}`}
+                  style={{ marginRight: 6, textDecoration: 'none' }} title={i.reason || ''}>
+                  {i.carrier} · {st.label}
+                </Link>
+              )
+            })}
+          </div>
+          <Link to="/contracting" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>All contracting issues →</Link>
+        </div>
+      )}
 
       {expiring.length > 0 && (
         <div className="card" style={{ borderColor: '#fcd34d', background: '#fffbeb',

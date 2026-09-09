@@ -180,6 +180,20 @@ SQL editor — the Releases page shows a setup notice if missing). Progress and
 completion logic live in `src/lib/releases.js`; a workflow auto-completes when
 the letter is uploaded and every carrier is RTS-confirmed.
 
+## Contracting issues (`/contracting`)
+
+Tracks agents whose initial carrier contracting hit a problem (declined for
+compliance, data mismatch, background, other). One case per (agent, carrier)
+in `contracting_issues` (`supabase/contracting.sql`, run manually; pages show
+a setup notice if missing), created from the active Onyx roster (agents
+present in `licenses`), any number of carriers at once. Status flow:
+`pending` ⇄ `resubmitted` (open, in the queue) → `approved` /
+`unable_to_contract` (exit; clears the case from the default Open list;
+reopenable). Each case has a notes thread (`contracting_issue_notes`); status
+changes are auto-logged there as system notes. Helpers, status metadata and
+allowed transitions live in `src/lib/contracting.js`. Writes are
+editor-gated. The agent profile shows a banner with the agent's open cases.
+
 ## Licensing costs (`/costs`)
 
 Tracks licensing spend from Sircon's monthly "Billed Transactions" CSV exports:
