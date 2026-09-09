@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useUser } from '@clerk/clerk-react'
 import { fetchAll } from '../lib/fetchAll.js'
 import { useIsEditor } from '../lib/useIsEditor.js'
+import AgentPicker from '../components/AgentPicker.jsx'
 import {
   CONTRACTING_CARRIERS, REASONS, STATUS, isOpen, fmtTs, isSetupError, createCases,
 } from '../lib/contracting.js'
@@ -23,7 +24,6 @@ export default function ContractingIssues() {
 
   // New-case form
   const [showForm, setShowForm] = useState(false)
-  const [agentQuery, setAgentQuery] = useState('')
   const [agentNpn, setAgentNpn] = useState('')
   const [selCarriers, setSelCarriers] = useState(new Set())
   const [reason, setReason] = useState('')
@@ -58,12 +58,6 @@ export default function ContractingIssues() {
       setIssues([])
     }
   }
-
-  const filteredAgents = useMemo(() => {
-    const s = agentQuery.toLowerCase()
-    return agents.filter(a =>
-      !s || `${a.first_name} ${a.last_name}`.toLowerCase().includes(s) || (a.npn || '').includes(s))
-  }, [agents, agentQuery])
 
   const openPairs = useMemo(() => new Set((issues || []).filter(isOpen).map(i => `${i.agent_npn}|${i.carrier}`)),
     [issues])
@@ -154,14 +148,8 @@ export default function ContractingIssues() {
         {showForm && isEditor && (
           <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #e2e8f0' }}>
             <h2>1 · Agent</h2>
-            <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-              <input placeholder="Search agent…" value={agentQuery} onChange={e => setAgentQuery(e.target.value)} style={{ width: 220 }} />
-              <select value={agentNpn} onChange={e => setAgentNpn(e.target.value)} style={{ minWidth: 260 }}>
-                <option value="">— choose an agent —</option>
-                {filteredAgents.map(a => (
-                  <option key={a.npn} value={a.npn}>{a.last_name}, {a.first_name} — {a.npn}</option>
-                ))}
-              </select>
+            <div style={{ marginBottom: 16 }}>
+              <AgentPicker agents={agents} value={agentNpn} onChange={setAgentNpn} />
             </div>
 
             <h2>2 · Carrier(s) with the issue</h2>

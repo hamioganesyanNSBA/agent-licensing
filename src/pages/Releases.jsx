@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase.js'
 import { fetchAll } from '../lib/fetchAll.js'
 import { RELEASE_CARRIERS, computeProgress, fmtTs, autoConfirmRts } from '../lib/releases.js'
 import ProgressBar from '../components/ProgressBar.jsx'
+import AgentPicker from '../components/AgentPicker.jsx'
 
 const STATUS_BADGE = {
   in_progress: ['badge-warn', 'In progress'],
@@ -23,7 +24,6 @@ export default function Releases() {
 
   // "Start a new release" form state
   const [showForm, setShowForm] = useState(false)
-  const [agentQuery, setAgentQuery] = useState('')
   const [agentNpn, setAgentNpn] = useState('')
   const [selCarriers, setSelCarriers] = useState(new Set())
   const [creating, setCreating] = useState(false)
@@ -69,12 +69,6 @@ export default function Releases() {
       (a.status === 'in_progress' ? 0 : 1) - (b.status === 'in_progress' ? 0 : 1)
       || new Date(b.created_at) - new Date(a.created_at))
   }, [workflows, carrierRows])
-
-  const filteredAgents = useMemo(() => {
-    const s = agentQuery.toLowerCase()
-    return agents.filter(a =>
-      !s || `${a.first_name} ${a.last_name}`.toLowerCase().includes(s) || (a.npn || '').includes(s))
-  }, [agents, agentQuery])
 
   function toggleCarrier(c) {
     setSelCarriers(prev => {
@@ -146,14 +140,8 @@ export default function Releases() {
         {showForm && (
           <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #e2e8f0' }}>
             <h2>1 · Select the agent</h2>
-            <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-              <input placeholder="Search agent…" value={agentQuery} onChange={e => setAgentQuery(e.target.value)} style={{ width: 220 }} />
-              <select value={agentNpn} onChange={e => setAgentNpn(e.target.value)} style={{ minWidth: 260 }}>
-                <option value="">— choose an agent —</option>
-                {filteredAgents.map(a => (
-                  <option key={a.npn} value={a.npn}>{a.last_name}, {a.first_name} — {a.npn}</option>
-                ))}
-              </select>
+            <div style={{ marginBottom: 16 }}>
+              <AgentPicker agents={agents} value={agentNpn} onChange={setAgentNpn} />
             </div>
             {agentNpn && openNpns.has(agentNpn) && (
               <p style={{ color: '#92400e', fontSize: 13 }}>⚠ This agent already has a release in progress — check the list below before starting another.</p>
