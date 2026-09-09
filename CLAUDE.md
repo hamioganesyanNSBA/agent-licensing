@@ -190,8 +190,12 @@ present in `licenses`), any number of carriers at once. Status flow:
 `pending` ⇄ `resubmitted` (open, in the queue) → `approved` /
 `unable_to_contract` (exit; clears the case from the default Open list;
 reopenable). Each case has a notes thread (`contracting_issue_notes`); status
-changes are auto-logged there as system notes. Helpers, status metadata and
-allowed transitions live in `src/lib/contracting.js`. Writes are
+changes are auto-logged there as system notes. **Auto-approve:**
+`autoApproveFromRts()` closes any open case whose agent shows RTS=Y for that
+carrier in the active plan year's `carrier_appointments` (system note names
+the report year); it runs after appointment imports on the Imports page and
+on Contracting page loads, mirroring the Releases auto-confirm. Helpers,
+status metadata and allowed transitions live in `src/lib/contracting.js`. Writes are
 editor-gated. The agent profile shows a banner with the agent's open cases.
 
 ## Licensing costs (`/costs`)

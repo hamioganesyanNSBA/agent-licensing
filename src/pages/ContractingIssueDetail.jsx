@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useUser } from '@clerk/clerk-react'
 import { supabase } from '../lib/supabase.js'
 import { useIsEditor } from '../lib/useIsEditor.js'
-import { REASONS, STATUS, TRANSITIONS, isOpen, fmtTs, addNote, setStatus } from '../lib/contracting.js'
+import { REASONS, STATUS, TRANSITIONS, isOpen, fmtTs, addNote, setStatus, autoApproveFromRts } from '../lib/contracting.js'
 
 export default function ContractingIssueDetail() {
   const { id } = useParams()
@@ -24,6 +24,7 @@ export default function ContractingIssueDetail() {
   useEffect(() => { load() }, [id])
 
   async function load() {
+    await autoApproveFromRts()   // this case may already be satisfied by our RTS data
     const { data: i, error: e1 } = await supabase.from('contracting_issues').select('*').eq('id', id).single()
     if (e1) { setError(e1.message); return }
     const [{ data: ns }, { data: sib }] = await Promise.all([
@@ -140,7 +141,8 @@ export default function ContractingIssueDetail() {
         <p style={{ color: '#64748b', fontSize: 13 }}>
           <strong>Pending</strong> = waiting on the carrier or the agent. <strong>Resubmitted</strong> = corrected paperwork
           sent back to the carrier. <strong>Approved</strong> / <strong>Unable to contract</strong> close the case and
-          remove it from the open queue. Every change is logged in the notes below.
+          remove it from the open queue. Every change is logged in the notes below. A case is approved automatically
+          when an imported RTS report shows this agent RTS=Y with {issue.carrier}.
         </p>
         {isEditor ? (
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>

@@ -1,6 +1,7 @@
 // Shared helpers for the carrier contracting-issues workflow.
-import { KNOWN_CARRIERS } from './coverageModel.js'
+import { KNOWN_CARRIERS, activePlanYear } from './coverageModel.js'
 import { supabase } from './supabase.js'
+import { fetchAll } from './fetchAll.js'
 
 export const CONTRACTING_CARRIERS = [...KNOWN_CARRIERS, 'UnitedHealthOne']
 
@@ -62,6 +63,44 @@ export async function setStatus(issue, status, author, reasonText = '') {
   const body = `Status changed: ${from} → ${STATUS[status].label}${reasonText ? ` — ${reasonText}` : ''}`
   await addNote(issue.id, body, author, true)
   return patch
+}
+
+/**
+ * Auto-close open cases satisfied by our RTS data: for every open contracting
+ * issue (pending / resubmitted), if the imported carrier_appointments show the
+ * agent as rts_status = Y for that carrier in the active plan year, the case is
+ * marked approved with a system note. Runs after appointment imports and when
+ * the Contracting pages load. Defensive: returns { approved: 0 } instead of
+ * throwing when the contracting tables don't exist yet.
+ */
+export async function autoApproveFromRts() {
+  const { data: open, error } = await supabase.from('contracting_issues')
+    .select('*').in('status', OPEN_STATUSES)
+  if (error || !open?.length) return { approved: 0, cases: [] }
+
+  // Per-agent paginated fetches — a single .in() query gets clamped to
+  // Supabase's 1000-row cap and could miss RTS rows.
+  const npns = [...new Set(open.map(i => i.agent_npn))]
+  let appts = []
+  for (const npn of npns) {
+    const rows = await fetchAll('carrier_appointments', 'agent_npn,carrier,plan_year',
+      { eq: { agent_npn: npn, rts_status: 'Y' } })
+    appts = appts.concat(rows)
+  }
+  if (!appts.length) return { approved: 0, cases: [] }
+  const year = activePlanYear([...new Set(appts.map(a => a.plan_year))])
+  const rtsSet = new Set(appts.filter(a => a.plan_year === year).map(a => `${a.agent_npn}|${a.carrier}`))
+
+  const cases = []
+  for (const issue of open) {
+    if (!rtsSet.has(`${issue.agent_npn}|${issue.carrier}`)) continue
+    try {
+      await setStatus(issue, 'approved', 'system',
+        `agent appears RTS=Y for ${issue.carrier} in the ${year} RTS report`)
+      cases.push(issue)
+    } catch { /* leave for the next run */ }
+  }
+  return { approved: cases.length, cases }
 }
 
 /**

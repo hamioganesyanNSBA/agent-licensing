@@ -5,7 +5,7 @@ import { fetchAll } from '../lib/fetchAll.js'
 import { useIsEditor } from '../lib/useIsEditor.js'
 import AgentPicker from '../components/AgentPicker.jsx'
 import {
-  CONTRACTING_CARRIERS, REASONS, STATUS, isOpen, fmtTs, isSetupError, createCases,
+  CONTRACTING_CARRIERS, REASONS, STATUS, isOpen, fmtTs, isSetupError, createCases, autoApproveFromRts,
 } from '../lib/contracting.js'
 
 export default function ContractingIssues() {
@@ -21,6 +21,7 @@ export default function ContractingIssues() {
   const [error, setError] = useState('')
   const [statusFilter, setStatusFilter] = useState('open')
   const [q, setQ] = useState('')
+  const [autoClosed, setAutoClosed] = useState([])   // cases auto-approved from RTS data on this load
 
   // New-case form
   const [showForm, setShowForm] = useState(false)
@@ -44,6 +45,8 @@ export default function ContractingIssues() {
         `${a.last_name}${a.first_name}`.localeCompare(`${b.last_name}${b.first_name}`)))
     }).catch(() => {})
     try {
+      const auto = await autoApproveFromRts()   // close any case our RTS reports already satisfy
+      if (auto.approved) setAutoClosed(auto.cases)
       const [rows, notes] = await Promise.all([
         fetchAll('contracting_issues', '*'),
         fetchAll('contracting_issue_notes', 'issue_id,is_system'),
@@ -128,6 +131,12 @@ export default function ContractingIssues() {
         <em> pending</em> or <em>resubmitted</em>; marking one <em>approved</em> or <em>unable to contract</em> clears it.
       </p>
       {error && <div className="card" style={{ color: '#991b1b' }}>Error: {error}</div>}
+      {autoClosed.length > 0 && (
+        <div className="card" style={{ borderColor: '#86efac', background: '#f0fdf4', color: '#166534', fontSize: 13 }}>
+          ⚡ Auto-approved and closed {autoClosed.length} case{autoClosed.length === 1 ? '' : 's'} — the agent now shows RTS=Y with that carrier:{' '}
+          {autoClosed.map(c => <Link key={c.id} to={`/contracting/${c.id}`} style={{ marginRight: 8 }}>{c.agent_name} · {c.carrier}</Link>)}
+        </div>
+      )}
 
       <div className="card">
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>

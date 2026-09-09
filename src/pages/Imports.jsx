@@ -4,6 +4,7 @@ import { IMPORTERS, IMPORTER_LIST } from '../lib/importers/index.js'
 import { supabase } from '../lib/supabase.js'
 import { fetchAll } from '../lib/fetchAll.js'
 import { autoConfirmRts } from '../lib/releases.js'
+import { autoApproveFromRts } from '../lib/contracting.js'
 import { useIsEditor } from '../lib/useIsEditor.js'
 
 // Compare parsed appointment rows against what's already stored for the same
@@ -149,6 +150,8 @@ export default function Imports() {
 
       // Fresh RTS data may satisfy open release workflows — auto-confirm them.
       const auto = parsed.appointments?.length ? await autoConfirmRts() : { confirmed: 0, completed: 0 }
+      // ...and close open contracting issues for agents who now show RTS=Y with that carrier.
+      const autoContract = parsed.appointments?.length ? await autoApproveFromRts() : { approved: 0, cases: [] }
 
       const counts = {
         agents:       parsed.agents?.length       || 0,
@@ -158,6 +161,7 @@ export default function Imports() {
         wrongUpline:  parsed.wrongUpline || null,
         autoConfirmed: auto.confirmed,
         autoCompleted: auto.completed,
+        autoApprovedCases: autoContract.cases,
         diff,
       }
       const total = counts.agents + counts.licenses + counts.appointments
@@ -313,6 +317,12 @@ export default function Imports() {
               <div style={{ marginTop: 4, fontSize: 13 }}>
                 ⚡ Auto-confirmed {result.autoConfirmed} release step(s)
                 {result.autoCompleted > 0 ? ` — ${result.autoCompleted} release workflow(s) completed` : ''} based on this RTS data.
+              </div>
+            )}
+            {result.autoApprovedCases?.length > 0 && (
+              <div style={{ marginTop: 4, fontSize: 13 }}>
+                ⚡ Auto-approved and closed {result.autoApprovedCases.length} contracting issue(s) now showing RTS=Y:{' '}
+                {result.autoApprovedCases.map(c => `${c.agent_name} · ${c.carrier}`).join('; ')}
               </div>
             )}
             {result.unmatched?.length > 0 && (
