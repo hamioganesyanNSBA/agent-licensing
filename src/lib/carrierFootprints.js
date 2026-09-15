@@ -12,6 +12,11 @@ export const CARRIER_FOOTPRINTS = {
   // scanhealthplan.com/en/states-and-counties — 6 states for 2026 (WA new).
   SCAN: new Set(['AZ', 'CA', 'NM', 'NV', 'TX', 'WA']),
 
+  // Alignment Health — MA in 5 states for 2026/2027, matching the STATE2
+  // values on NSBA's first Alignment RTS report (Sep 2026). Alignment has
+  // exited FL and doesn't appear in any other state; re-verify each AEP.
+  Alignment: new Set(['AZ', 'CA', 'NC', 'NV', 'TX']),
+
   // myzinghealth.com + medicare.org 2026 plan listings (IL/IN, MI, TN/MS).
   Zing: new Set(['IL', 'IN', 'MI', 'MS', 'TN']),
 

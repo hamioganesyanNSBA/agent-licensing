@@ -62,6 +62,7 @@ export default function Appointments() {
           <select value={carrier} onChange={e => setCarrier(e.target.value)}>
             <option value="">All carriers</option>
             <option>Aetna</option>
+            <option>Alignment</option>
             <option>UnitedHealthcare</option>
             <option>Devoted</option>
             <option>Wellcare</option>

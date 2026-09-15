@@ -12,6 +12,7 @@ import * as zing        from './zing.js'
 import * as molina      from './molina.js'
 import * as anthem      from './anthem.js'
 import * as uhone       from './uhone.js'
+import * as alignment   from './alignment.js'
 
 export const IMPORTERS = {
   aetna,
@@ -24,6 +25,7 @@ export const IMPORTERS = {
   molina,
   anthem,
   uhone,
+  alignment,
 }
 
 export const IMPORTER_LIST = Object.values(IMPORTERS).map(m => m.meta)

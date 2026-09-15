@@ -106,8 +106,14 @@ products, carrier `UnitedHealthOne`, product_category `Ancillary`,
 Active→RTS Y / Pending→N); because it isn't a Medicare Advantage product, that
 carrier is excluded from the Sunfire export (`NON_SUNFIRE_CARRIERS` in
 `sunfireExport.js`) and from the Coverage gap math (`ANCILLARY_CARRIERS` in
-`coverageModel.js`). Licenses are **not** imported by
-file anymore — see the Onyx sync above.
+`coverageModel.js`). `alignment` imports Alignment Health's RTS CSV
+(`<Firm>_Alignment_RTS_<timestamp>.csv`, one row per rep × STATE2, carrier
+`Alignment`, product `MA`); plan years come from the file, not the selector:
+the AEP year (`AEP_TRAIN_YR`; RTS=Y when `STATUS_AEP` is A) and the year
+before it (RTS=Y when `STATUS_CURRENT_YR` is A **or** `STATUS_AEP` is A — an
+AEP cert also makes the agent ready now; NSBA's first year, 2026, had no
+Alignment cert, so the 2027 cert is what qualifies agents for 2026). Licenses are
+**not** imported by file anymore — see the Onyx sync above.
 
 Each importer module exports:
 

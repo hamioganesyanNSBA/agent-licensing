@@ -26,6 +26,7 @@ const ALL_PRODUCTS = 'MA; PDP; CSNP; DSNP'
 // parent and the Wellcare brand, with identical rows (verified in the sample).
 const CARRIER_DISPLAY = {
   'Devoted':  ['Devoted Health'],
+  'Alignment': ['Alignment Health Plan'],   // TODO confirm against Sunfire's carrier list on first upload
   'Wellcare': ['Centene Corporation', 'Wellcare Health Plans'],
   'SCAN':     ['SCAN Health Plan'],
   'Zing':     ['Zing Health'],
