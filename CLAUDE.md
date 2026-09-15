@@ -112,7 +112,13 @@ carrier is excluded from the Sunfire export (`NON_SUNFIRE_CARRIERS` in
 the AEP year (`AEP_TRAIN_YR`; RTS=Y when `STATUS_AEP` is A) and the year
 before it (RTS=Y when `STATUS_CURRENT_YR` is A **or** `STATUS_AEP` is A — an
 AEP cert also makes the agent ready now; NSBA's first year, 2026, had no
-Alignment cert, so the 2027 cert is what qualifies agents for 2026). Licenses are
+Alignment cert, so the 2027 cert is what qualifies agents for 2026).
+`aetna` accepts both the legacy XLSX Broker Readiness Report (sheet `DETAIL`,
+plan year from the selector) and the current
+`<Firm>_Aetna_RTS_<timestamp>.csv`, which carries BOTH the current and next
+plan year via `SALES_YEAR` (selector ignored). RTS=Y when `RTS_EXP_REASON`
+is blank and no readiness flag is `F`; rows with a blank `PRODUCT` (all-`F`
+placeholders) are skipped. Licenses are
 **not** imported by file anymore — see the Onyx sync above.
 
 Each importer module exports:
