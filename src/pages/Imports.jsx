@@ -286,7 +286,7 @@ export default function Imports() {
         <p>Upload a source file. Existing rows will be updated (upsert).</p>
         <p style={{ color: '#92400e', fontSize: 13 }}>
           ⚠ Set the plan year to match the report you&apos;re uploading — a next-year cert report
-          imported under the current year overwrites this year&apos;s RTS data. (Devoted, Alignment, Humana and Aetna RTS CSV files
+          imported under the current year overwrites this year&apos;s RTS data. (Devoted, Alignment, Humana, Elevance/Anthem RTS and Aetna RTS CSV files
           carry their own plan year(s) and ignore this selector.)
         </p>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>

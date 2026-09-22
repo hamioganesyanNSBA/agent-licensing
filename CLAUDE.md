@@ -100,7 +100,16 @@ for BOTH the selected plan year (CURR_YEAR_TRAINING) and the next
 name-matched to the roster since it has no NPN column); only rows under the
 current upline INNOVATIVE FINANCIAL PARTNERS LLC (`H_Parent_Name`) import —
 other uplines are skipped, and active roster agents found under one are
-returned in `wrongUpline` and shown on the Imports page for outreach.
+returned in `wrongUpline` and shown on the Imports page for outreach. The same
+importer also accepts (header-sniffed) the newer
+`<Firm>_Elevance_RTS_<timestamp>.csv`, which has NPNs (no name matching): one
+row per agent × `APPOINTMENTSTATE` × legal entity, all brands rolled up to
+carrier `Anthem`; Med-Supp-only entity rows (HMO/PPO/PDP/SNP all `N/A`) are
+skipped, a state is RTS=Y when any MA entity row's `<year>RTS` is Yes
+(`<year>RTSMSONLY` is the Med Supp flag, ignored), one row per `<year>RTS`
+column (selector ignored), writing number = `ENCRYPTEDTIN` (same value as the
+legacy `C_Writing_Etin`), same `PARENTNAME` upline rule. Unlike the legacy
+report (which only ever writes Y rows for the selected year) it writes N rows.
 `uhone` imports UnitedHealthOne's "ActiveSubProducers" CSV (ancillary
 products, carrier `UnitedHealthOne`, product_category `Ancillary`,
 Active→RTS Y / Pending→N); because it isn't a Medicare Advantage product, that
