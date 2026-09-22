@@ -5,7 +5,7 @@
 import { statesInFootprint } from './carrierFootprints.js'
 import { isOperatingState } from './operatingStates.js'
 
-export const KNOWN_CARRIERS = ['Aetna', 'Alignment', 'Anthem', 'Cigna', 'Devoted', 'Molina', 'SCAN', 'UnitedHealthcare', 'Wellcare', 'Zing']
+export const KNOWN_CARRIERS = ['Aetna', 'Alignment', 'Anthem', 'Cigna', 'Devoted', 'Humana', 'Molina', 'SCAN', 'UnitedHealthcare', 'Wellcare', 'Zing']
 export const CARRIER_SHORT = { UnitedHealthcare: 'UHC' }
 
 // Ancillary-only carriers (no MA plans) — their appointments live in

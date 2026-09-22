@@ -13,6 +13,7 @@ import * as molina      from './molina.js'
 import * as anthem      from './anthem.js'
 import * as uhone       from './uhone.js'
 import * as alignment   from './alignment.js'
+import * as humana      from './humana.js'
 
 export const IMPORTERS = {
   aetna,
@@ -26,6 +27,7 @@ export const IMPORTERS = {
   anthem,
   uhone,
   alignment,
+  humana,
 }
 
 export const IMPORTER_LIST = Object.values(IMPORTERS).map(m => m.meta)

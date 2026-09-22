@@ -113,6 +113,13 @@ the AEP year (`AEP_TRAIN_YR`; RTS=Y when `STATUS_AEP` is A) and the year
 before it (RTS=Y when `STATUS_CURRENT_YR` is A **or** `STATUS_AEP` is A — an
 AEP cert also makes the agent ready now; NSBA's first year, 2026, had no
 Alignment cert, so the 2027 cert is what qualifies agents for 2026).
+`humana` imports Humana's RTS CSV (`<Firm>_Humana_RTS_<timestamp>.csv`, three
+rows per agent × `LIC_ST_CD` — one per contract: Medicare / Medsup /
+Individual). Only `CONTR_DESC_CODE` = Medicare rows import (carrier `Humana`,
+product `MA`): `RTS_<year>` is per contract, and the Medsup/Individual rows
+often say Yes where the Medicare row says No. One row per `RTS_<year>` column
+in the file (selector ignored); `writing_number` stores the Humana SAN
+(`AGENT_SAN`), though the Sunfire export sends the NPN like most carriers.
 `aetna` accepts both the legacy XLSX Broker Readiness Report (sheet `DETAIL`,
 plan year from the selector) and the current
 `<Firm>_Aetna_RTS_<timestamp>.csv`, which carries BOTH the current and next

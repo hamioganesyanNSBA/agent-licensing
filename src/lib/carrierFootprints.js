@@ -58,8 +58,9 @@ export const CARRIER_FOOTPRINTS = {
 
   // Near-national for 2026 — leave unrestricted so real gaps are never hidden:
   // Aetna (MAPD in 43 states + DC), UHC (~national), Wellcare (MA in 32
-  // states + national PDP).
+  // states + national PDP), Humana (MA in ~46 states + DC).
   Aetna: null,
+  Humana: null,
   UnitedHealthcare: null,
   Wellcare: null,
 }
