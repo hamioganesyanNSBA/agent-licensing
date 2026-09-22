@@ -127,8 +127,9 @@ rows per agent × `LIC_ST_CD` — one per contract: Medicare / Medsup /
 Individual). Only `CONTR_DESC_CODE` = Medicare rows import (carrier `Humana`,
 product `MA`): `RTS_<year>` is per contract, and the Medsup/Individual rows
 often say Yes where the Medicare row says No. One row per `RTS_<year>` column
-in the file (selector ignored); `writing_number` stores the Humana SAN
-(`AGENT_SAN`), though the Sunfire export sends the NPN like most carriers.
+in the file (selector ignored); `writing_number` is the Humana SAN
+(`AGENT_SAN`), which the Sunfire export sends as the writing number (Humana
+is in `OWN_WRITING_NUMBER` alongside UHC and Anthem).
 `aetna` accepts both the legacy XLSX Broker Readiness Report (sheet `DETAIL`,
 plan year from the selector) and the current
 `<Firm>_Aetna_RTS_<timestamp>.csv`, which carries BOTH the current and next

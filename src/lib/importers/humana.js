@@ -55,7 +55,7 @@ export async function parseFile(file) {
       last_name:  clean(r['Last_Name']),
       email:      clean(r['AGENTEMAIL'])?.toLowerCase() || null,
       carrier:    'Humana',
-      writing_number: clean(r['AGENT_SAN']),   // Humana SAN (the Sunfire export sends the NPN)
+      writing_number: clean(r['AGENT_SAN']),   // Humana SAN — this is what Sunfire wants, not the NPN
       state,
       product_category: 'MA',
     }

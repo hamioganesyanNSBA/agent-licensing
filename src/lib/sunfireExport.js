@@ -40,10 +40,11 @@ const asNumberIfNumeric = v => (v != null && /^\d+$/.test(String(v)) ? Number(v)
 // carrier_appointments but never uploaded to Sunfire.
 const NON_SUNFIRE_CARRIERS = new Set(['UnitedHealthOne'])
 
-// Writing-number rule: every carrier uses the agent's NPN, EXCEPT these two,
+// Writing-number rule: every carrier uses the agent's NPN, EXCEPT these,
 // which have their own carrier-issued writing numbers (Anthem's ETIN from the
-// Anthem RTS report; UHC's from the UHC readiness report).
-const OWN_WRITING_NUMBER = new Set(['UnitedHealthcare', 'Anthem'])
+// Anthem RTS report; UHC's from the UHC readiness report; Humana's SAN from
+// the AGENT_SAN column of the Humana RTS report).
+const OWN_WRITING_NUMBER = new Set(['UnitedHealthcare', 'Anthem', 'Humana'])
 
 /**
  * appointments: rows from carrier_appointments (all years).
