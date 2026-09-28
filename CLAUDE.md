@@ -130,6 +130,14 @@ often say Yes where the Medicare row says No. One row per `RTS_<year>` column
 in the file (selector ignored); `writing_number` is the Humana SAN
 (`AGENT_SAN`), which the Sunfire export sends as the writing number (Humana
 is in `OWN_WRITING_NUMBER` alongside UHC and Anthem).
+`uhc` imports the UHC Readiness Report (`686773_EA_Ready_<date>.xlsx`):
+per-state status from sheet `L&A` (`C` = licensed + appointed), plan years
+from the `Certs` sheet's `Product Year` (selector ignored when that sheet
+exists), one set of rows per year. A state is RTS=Y for a year only when
+`L&A` = `C` **and** the agent's Certs row for that year has Ready To Sell =
+Yes **and** Certified = Yes (no qualifying row → N in every state). Files
+without a Certs sheet fall back to the selector year, L&A only. Certs is agent-level (not per state),
+joined to L&A by NIPR Number.
 `aetna` accepts both the legacy XLSX Broker Readiness Report (sheet `DETAIL`,
 plan year from the selector) and the current
 `<Firm>_Aetna_RTS_<timestamp>.csv`, which carries BOTH the current and next
