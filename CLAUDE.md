@@ -138,6 +138,15 @@ exists), one set of rows per year. A state is RTS=Y for a year only when
 Yes **and** Certified = Yes (no qualifying row → N in every state). Files
 without a Certs sheet fall back to the selector year, L&A only. Certs is agent-level (not per state),
 joined to L&A by NIPR Number.
+`wellcare` imports the Centene license CSV (`CenteneLicense_*.csv`, one row
+per state license, RTS=Y when any row for NPN × state is Active; plan year
+from the selector) and, header-sniffed by `AEP Status`, the Centene ProStat
+file (`CenteneProStat_<yyyymm>…csv`, one row per agent, no states). The
+ProStat file only sets the upcoming AEP plan year (filename year + 1, e.g.
+2027): it reads the latest pre-AEP-year Wellcare rows already in the DB (so
+the license file must be uploaded first) and writes AEP-year rows with RTS=Y
+where that row is Y **and** AEP Status = Ready. It never writes the current
+year.
 `aetna` accepts both the legacy XLSX Broker Readiness Report (sheet `DETAIL`,
 plan year from the selector) and the current
 `<Firm>_Aetna_RTS_<timestamp>.csv`, which carries BOTH the current and next

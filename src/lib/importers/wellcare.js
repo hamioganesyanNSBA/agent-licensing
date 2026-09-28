@@ -12,12 +12,22 @@
 //   Type, Sub Type, NPN, State, Start Date, End Date, Rule Name, Cocode,
 //   Company, LOA Product, Appointment Method, Appointment Status.
 //   Rule: RTS=Y when Appointment Status = Appointed; product from LOA Product.
+//
+// Centene ProStat (CenteneProStat_<yyyymm>...csv) — header: First Name, Last
+//   Name, Producer Type, Sub Type, NPN, Broker Status, Status Reason, AEP
+//   Status. One row per agent, NO states: it only says whether the agent is
+//   ready for the upcoming AEP plan year (filename year + 1, e.g. 2027). The
+//   states come from the license file already in the database: for the AEP
+//   year, a state is RTS=Y when the agent's latest pre-AEP-year Wellcare row
+//   for it is Y AND AEP Status = Ready. Upload the license file first — this
+//   emits AEP-year rows only and never touches the current year.
 import { readCsv, rowsToObjects, clean } from '../parse.js'
 import { toStateCode } from '../states.js'
+import { fetchAll } from '../fetchAll.js'
 
 export const meta = {
   key: 'wellcare',
-  label: 'Wellcare Appointments',
+  label: 'Wellcare Appointments / Centene AEP Status',
   accept: '.csv',
   target: 'carrier_appointments',
 }
@@ -44,10 +54,48 @@ function baseRow(r, npn, state, planYear) {
   }
 }
 
+// Centene ProStat AEP-readiness file -> AEP-year rows, states from the DB.
+async function parseAepStatus(file, objects) {
+  const m = /_(20d{2})d{2}/.exec(file.name || '')
+  const aepYear = (m ? parseInt(m[1], 10) : new Date().getFullYear()) + 1
+
+  const ready = new Set()
+  for (const r of objects) {
+    const npn = clean(r['NPN'])
+    if (npn && (clean(r['AEP Status']) || '').toLowerCase() === 'ready') ready.add(npn)
+  }
+
+  // States per agent from the license-file rows of the latest year before the AEP year.
+  const existing = await fetchAll('carrier_appointments',
+    'agent_npn,first_name,last_name,writing_number,plan_year,state,product_category,rts_status',
+    { eq: { carrier: 'Wellcare' } })
+  const baseYears = existing.map(r => r.plan_year).filter(y => y < aepYear)
+  if (!baseYears.length) {
+    throw new Error(`No Wellcare license data before ${aepYear} is loaded yet — upload the regular Wellcare license file first, then this AEP status file. Nothing was imported.`)
+  }
+  const baseYear = Math.max(...baseYears)
+  const appointments = existing
+    .filter(r => r.plan_year === baseYear)
+    .map(r => ({
+      agent_npn:  r.agent_npn,
+      first_name: r.first_name,
+      last_name:  r.last_name,
+      email:      null,
+      carrier:    'Wellcare',
+      plan_year:  aepYear,
+      writing_number: r.writing_number || r.agent_npn,
+      state:      r.state,
+      product_category: r.product_category,
+      rts_status: r.rts_status === 'Y' && ready.has(r.agent_npn) ? 'Y' : 'N',
+    }))
+  return { appointments }
+}
+
 export async function parseFile(file, opts = {}) {
   const rows = await readCsv(file)
   const objects = rowsToObjects(rows, 0)
   const headers = rows[0].map(h => String(h ?? '').trim())
+  if (headers.includes('AEP Status') && headers.includes('NPN')) return parseAepStatus(file, objects)
   // Content fingerprint: ProStat reports (Healthspring/SCAN/Zing) share the
   // First/Last/NPN columns but carry LOB + State Status — reject those here.
   if (headers.includes('LOB') && headers.includes('State Status')) {
