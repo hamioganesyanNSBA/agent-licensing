@@ -91,11 +91,27 @@ Registered in `index.js` (`IMPORTERS` map + `IMPORTER_LIST`) — these are the
 manual file uploads on the Imports page, all targeting `carrier_appointments`:
 `aetna`, `uhc`, `devoted`, `wellcare`, plus the "ProStat" carriers
 `healthspring` (Cigna), `scan`, `zing`, `molina` which share `_prostat.js` (MA
-rows only; RTS=Y when State Status is Active/Certified). The `scan` importer also accepts
+rows only; RTS=Y when State Status is Active/Certified). The `healthspring`
+importer also accepts (header-sniffed by `Training Name`/`Module Name`) the
+HCSC training report (`HCSC_Training_<timestamp>.csv`, one row per agent ×
+track × module, no states). Like the Centene ProStat file, it only sets the
+AEP plan year (latest `Year` in the file): it reads the latest pre-AEP-year
+Cigna rows in the DB (upload the appointment report first) and writes AEP-year
+rows with RTS=Y where that row is Y **and** every module of the agent's MA
+track (not "PDP-Only Markets") has a Training Progress; "AHIP Medicare
+Training" is optional. It never writes the current year. The `scan` importer also accepts
 SCAN's newer "Agency Downlines" export (`AgencyDownlines_*.csv`, sniffed by
 header): one row per broker with a comma-packed STATES column; it emits rows
 for BOTH the selected plan year (CURR_YEAR_TRAINING) and the next
 (NEXT_YEAR_TRAINING), and repairs the export's glued header/first-row line.
+It also accepts (header-sniffed) the SCAN training report
+(`SCAN_Training_<timestamp>.csv`, one row per agent × year × training, no
+states): an agent is certified for the AEP year (latest `Year` in the file)
+when an "Online Certification" row for it is at 100. The Wellcare Centene
+ProStat, HCSC training, and SCAN training files all share
+`_aepFromBase.js`: copy the carrier's latest pre-AEP-year rows (states) to
+the AEP year, RTS=Y where the base row is Y **and** the agent is certified;
+never writes the current year, and the base report must be uploaded first.
 `anthem` imports the Anthem "Agent_Relationship_Report" CSV (hierarchy export,
 name-matched to the roster since it has no NPN column); only rows under the
 current upline INNOVATIVE FINANCIAL PARTNERS LLC (`H_Parent_Name`) import —

@@ -413,7 +413,7 @@ const FILE_HINTS = {
   uhc:          /uhc|united\s?health/i,
   devoted:      /devoted/i,
   wellcare:     /wellcare|centene/i,
-  healthspring: /health\s?spring|cigna/i,
+  healthspring: /health\s?spring|cigna|hcsc/i,
   scan:         /scan(?!ned)|agency\s?downlines/i,
   zing:         /zing/i,
   anthem:       /anthem/i,
