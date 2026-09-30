@@ -16,9 +16,9 @@
 //    upcoming AEP plan year (latest Year in the file, e.g. 2027) from the
 //    latest pre-AEP-year SCAN rows in the DB — see _aepFromBase.js.
 import { parseProStat } from './_prostat.js'
-import { parseCsv, rowsToObjects, clean } from '../parse.js'
+import { parseCsv, clean } from '../parse.js'
 import { toStateCode } from '../states.js'
-import { aepRowsFromBase } from './_aepFromBase.js'
+import { TRAINING_HEADER, aepRowsFromTrainingReport } from './_aepFromBase.js'
 
 export const meta = {
   key: 'scan',
@@ -32,27 +32,19 @@ export async function parseFile(file, opts = {}) {
   if (/^FIRST_NAME,MIDDLE_NAME,LAST_NAME,NPN/i.test(text.trimStart())) {
     return parseDownlines(text, opts)
   }
-  if (/^First Name,Last Name,.*,NPN,Year,Training Name,Training Progress/i.test(text.trimStart())) {
+  if (TRAINING_HEADER.test(text.trimStart())) {
     return parseTraining(text)
   }
   return parseProStat(file, 'SCAN', opts)
 }
 
 async function parseTraining(text) {
-  const objects = rowsToObjects(parseCsv(text), 0)
-  const year = r => parseInt(clean(r['Year']), 10)
-  const aepYear = Math.max(...objects.map(year).filter(Number.isFinite))
-  if (!Number.isFinite(aepYear)) {
-    throw new Error('No training years found in this SCAN training report. Nothing was imported.')
-  }
-  const certified = new Set()
-  for (const r of objects) {
-    const npn = clean(r['NPN'])
-    if (npn && year(r) === aepYear
-      && (clean(r['Training Name']) || '').toLowerCase() === 'online certification'
-      && parseFloat(clean(r['Training Progress'])) >= 100) certified.add(npn)
-  }
-  const appointments = await aepRowsFromBase('SCAN', aepYear, certified, 'the SCAN ProStat or Agency Downlines report')
+  const appointments = await aepRowsFromTrainingReport(text, {
+    carrier: 'SCAN',
+    label: 'SCAN training report',
+    isCert: (name, progress) => name === 'online certification' && progress >= 100,
+    firstUpload: 'the SCAN ProStat or Agency Downlines report',
+  })
   return { appointments }
 }
 

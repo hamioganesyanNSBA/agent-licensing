@@ -107,11 +107,21 @@ for BOTH the selected plan year (CURR_YEAR_TRAINING) and the next
 It also accepts (header-sniffed) the SCAN training report
 (`SCAN_Training_<timestamp>.csv`, one row per agent × year × training, no
 states): an agent is certified for the AEP year (latest `Year` in the file)
-when an "Online Certification" row for it is at 100. The Wellcare Centene
-ProStat, HCSC training, and SCAN training files all share
-`_aepFromBase.js`: copy the carrier's latest pre-AEP-year rows (states) to
-the AEP year, RTS=Y where the base row is Y **and** the agent is certified;
-never writes the current year, and the base report must be uploaded first.
+when an "Online Certification" row for it is at 100. `zing` likewise accepts
+the Zing training report (`ZING_Training_<timestamp>.csv`, same columns):
+certified when the AEP year's "Zing Training" row is at 100 (the "Medicare
+Certificate" exam score is not checked). `molina` accepts the Molina
+certification report (`Molina_Certification_<timestamp>.csv`, same shape but
+`Certification Name`/`Certification Progress` columns): certified when the
+AEP year's "Medicare Product Training" row is at 100 (the "AHIP" exam score
+is not checked; "FFM Certificate" / "Kentucky SBM" rows are marketplace, not
+MA, and are ignored). These three share `aepRowsFromTrainingReport()`
+(header regex `TRAINING_HEADER`) in `_aepFromBase.js`. The Wellcare Centene
+ProStat, HCSC training, and SCAN / Zing / Molina training files all share
+`aepRowsFromBase()` there: copy the carrier's latest pre-AEP-year rows
+(states) to the AEP year, RTS=Y where the base row is Y **and** the agent is
+certified; never writes the current year, and the base report must be
+uploaded first.
 `anthem` imports the Anthem "Agent_Relationship_Report" CSV (hierarchy export,
 name-matched to the roster since it has no NPN column); only rows under the
 current upline INNOVATIVE FINANCIAL PARTNERS LLC (`H_Parent_Name`) import —

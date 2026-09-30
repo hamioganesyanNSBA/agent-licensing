@@ -286,7 +286,7 @@ export default function Imports() {
         <p>Upload a source file. Existing rows will be updated (upsert).</p>
         <p style={{ color: '#92400e', fontSize: 13 }}>
           ⚠ Set the plan year to match the report you&apos;re uploading — a next-year cert report
-          imported under the current year overwrites this year&apos;s RTS data. (Devoted, Alignment, Humana, Elevance/Anthem RTS, Aetna RTS CSV, UHC Readiness (with a Certs sheet) and Centene ProStat AEP status files
+          imported under the current year overwrites this year&apos;s RTS data. (Devoted, Alignment, Humana, Elevance/Anthem RTS, Aetna RTS CSV, UHC Readiness (with a Certs sheet), Centene ProStat AEP status, and the HCSC / SCAN / Zing / Molina training files
           carry their own plan year(s) and ignore this selector.)
         </p>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>
@@ -416,6 +416,7 @@ const FILE_HINTS = {
   healthspring: /health\s?spring|cigna|hcsc/i,
   scan:         /scan(?!ned)|agency\s?downlines/i,
   zing:         /zing/i,
+  molina:       /molina/i,
   anthem:       /anthem/i,
   uhone:        /sub\s?producer|uh\s?one|united\s?health\s?one/i,
   alignment:    /alignment/i,
