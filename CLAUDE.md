@@ -173,6 +173,11 @@ ProStat file only sets the upcoming AEP plan year (filename year + 1, e.g.
 the license file must be uploaded first) and writes AEP-year rows with RTS=Y
 where that row is Y **and** AEP Status = Ready. It never writes the current
 year.
+`devoted` imports Devoted's RTS report (legacy portal export or the current
+`<Firm>_Devoted_RTS_<timestamp>.csv`, whose headers are upper snake case —
+headers are matched after stripping case/punctuation so both work): one row
+per agent × plan year × state, both plan years in the file (selector
+ignored), RTS=Y when Is Approved = Yes.
 `aetna` accepts both the legacy XLSX Broker Readiness Report (sheet `DETAIL`,
 plan year from the selector) and the current
 `<Firm>_Aetna_RTS_<timestamp>.csv`, which carries BOTH the current and next
