@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchAll } from '../lib/fetchAll.js'
 import { useLicensedNpns } from '../lib/useLicensedNpns.js'
+import { isSellingAgent } from '../lib/nonSellingAgents.js'
 import { Th, useSortState, sortCompare } from '../components/SortHeader.jsx'
 import Pagination from '../components/Pagination.jsx'
 
@@ -39,7 +40,7 @@ export default function Appointments() {
 
   const sorted = useMemo(() => {
     if (!licensedNpns) return []
-    let out = rows.filter(r => licensedNpns.has(r.agent_npn))
+    let out = rows.filter(r => licensedNpns.has(r.agent_npn) && isSellingAgent(r.agent_npn))
     if (carrier) out = out.filter(r => r.carrier === carrier)
     if (state)   out = out.filter(r => r.state === state)
     if (year)    out = out.filter(r => r.plan_year === year)

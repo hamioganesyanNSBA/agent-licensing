@@ -12,6 +12,7 @@
 //   - NPN / numeric writing numbers are written as numbers, like the sample.
 import * as XLSX from 'xlsx'
 import { isOperatingState } from './operatingStates.js'
+import { isSellingAgent } from './nonSellingAgents.js'
 import { activeLicensedStatesByNpn } from './coverageModel.js'
 
 const COLUMNS = [
@@ -68,6 +69,7 @@ export function buildSunfireRows(appointments, agents, licenses, { fmo = null } 
     if (NON_SUNFIRE_CARRIERS.has(a.carrier)) continue     // ancillary, not MA
     if (a.rts_status !== 'Y') continue                    // only ready states
     if (!activeNpns.has(a.agent_npn)) continue            // only active agents
+    if (!isSellingAgent(a.agent_npn)) continue            // licensed, but no longer sells Medicare
     if (!isOperatingState(a.state)) continue              // agency doesn't sell/market there
     if (!licensedByNpn.get(a.agent_npn)?.has(a.state)) continue // no active Onyx license — stale RTS state
     const key = `${a.agent_npn}|${a.carrier}|${a.plan_year}`

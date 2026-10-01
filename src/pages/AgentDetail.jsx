@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase.js'
 import { EXPIRING_WINDOW_DAYS, expiringLicenses, daysUntil } from '../lib/renewals.js'
 import { residentStateOf, residencyUnknown } from '../lib/residency.js'
 import { STATUS as CONTRACT_STATUS, isOpen as isOpenIssue } from '../lib/contracting.js'
+import { isSellingAgent } from '../lib/nonSellingAgents.js'
 
 export default function AgentDetail() {
   const { npn } = useParams()
@@ -138,6 +139,12 @@ export default function AgentDetail() {
 
       <div className="card">
         <h2>Carrier appointments ({appts.length})</h2>
+        {!isSellingAgent(npn) && (
+          <p style={{ color: '#64748b', fontSize: 13, marginTop: 0 }}>
+            This agent no longer sells Medicare: licenses are still tracked, but they are excluded from the
+            Appointments and Coverage pages and the Sunfire export. Rows below are history from carrier reports.
+          </p>
+        )}
         <table>
           <thead><tr><th>Carrier</th><th>Plan Year</th><th>State</th><th>Product</th><th>RTS</th></tr></thead>
           <tbody>

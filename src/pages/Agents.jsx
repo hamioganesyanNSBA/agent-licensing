@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fetchAll } from '../lib/fetchAll.js'
 import { buildCoverageModel, CARRIER_SHORT } from '../lib/coverageModel.js'
+import { isSellingAgent } from '../lib/nonSellingAgents.js'
 import { residentStatesByNpn, residencyUnknown, fetchLicensesWithResidency } from '../lib/residency.js'
 import { Th, useSortState, sortCompare } from '../components/SortHeader.jsx'
 import Pagination from '../components/Pagination.jsx'
@@ -45,6 +46,7 @@ export default function Agents() {
           ...a,
           sortName: `${a.last_name || ''}, ${a.first_name || ''}`,
           residentState: resident.get(a.npn) || null,
+          nonSelling: !isSellingAgent(a.npn),
           gapCount: cov ? cov.gapCount : null,   // null = no active licenses
           gaps: cov ? cov.cells.filter(c => c.level === 'none' || c.level === 'partial') : [],
         }
@@ -94,7 +96,8 @@ export default function Agents() {
                     : <span style={{ color: '#94a3b8' }}>{noResidency ? 'unknown' : '—'}</span>}
                 </td>
                 <td>
-                  {a.gapCount === null ? <span style={{ color: '#94a3b8' }}>no active licenses</span>
+                  {a.nonSelling ? <span style={{ color: '#94a3b8' }} title="Licenses tracked, but excluded from appointment / coverage tracking">not selling Medicare</span>
+                    : a.gapCount === null ? <span style={{ color: '#94a3b8' }}>no active licenses</span>
                     : a.gapCount === 0 ? <span className="badge badge-y">fully appointed</span>
                     : a.gaps.map(g => (
                         <span key={g.carrier}

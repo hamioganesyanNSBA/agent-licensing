@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { fetchAll } from '../lib/fetchAll.js'
+import { isSellingAgent } from '../lib/nonSellingAgents.js'
 import { TIER_1, TIER_2 } from '../lib/tiers.js'
 import { expiringAgencyLicenses } from '../lib/renewals.js'
 import { toStateCode } from '../lib/states.js'
@@ -39,7 +40,7 @@ export default function Dashboard() {
       expiringAgencyLicenses(agencyLics, days).filter(l => l.expiration_date >= today).length
 
     const licensedNpns = new Set(allLics.map(l => l.npn))
-    const npnList = [...licensedNpns]
+    const npnList = [...licensedNpns].filter(isSellingAgent)   // appointment stats skip non-selling agents
 
     const [appt, lic] = await Promise.all([
       supabase.from('carrier_appointments')

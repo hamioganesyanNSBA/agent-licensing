@@ -7,6 +7,7 @@ import { readCsv, toDate, clean } from '../lib/parse.js'
 import { toStateCode } from '../lib/states.js'
 import { activePlanYear } from '../lib/coverageModel.js'
 import { isOperatingState } from '../lib/operatingStates.js'
+import { isSellingAgent } from '../lib/nonSellingAgents.js'
 import { useIsEditor } from '../lib/useIsEditor.js'
 import { Th, useSortState, sortCompare } from '../components/SortHeader.jsx'
 
@@ -63,7 +64,8 @@ export default function AgencyLicenses() {
       else setError(e.message || String(e))
       setRows([])
     }
-    fetchAll('carrier_appointments', 'state,plan_year,rts_status').then(setAppointments).catch(() => {})
+    fetchAll('carrier_appointments', 'agent_npn,state,plan_year,rts_status')
+      .then(rows => setAppointments(rows.filter(a => isSellingAgent(a.agent_npn)))).catch(() => {})
   }
 
   const entities = useMemo(() => [...new Set((rows || []).map(r => r.entity))].sort(), [rows])

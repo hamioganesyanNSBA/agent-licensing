@@ -1,9 +1,11 @@
 // Shared coverage/gap model used by the Coverage page and the Agents list.
-// For every active agent (NPN present in licenses), compares states with an
+// For every active agent (NPN present in licenses, and not in
+// nonSellingAgents.js), compares states with an
 // active unexpired license — restricted to each carrier's plan footprint —
 // against RTS=Y appointment states for the latest plan year.
 import { statesInFootprint } from './carrierFootprints.js'
 import { isOperatingState } from './operatingStates.js'
+import { isSellingAgent } from './nonSellingAgents.js'
 
 export const KNOWN_CARRIERS = ['Aetna', 'Alignment', 'Anthem', 'Cigna', 'Devoted', 'Humana', 'Molina', 'SCAN', 'UnitedHealthcare', 'Wellcare', 'Zing']
 export const CARRIER_SHORT = { UnitedHealthcare: 'UHC' }
@@ -73,7 +75,8 @@ export function buildCoverageModel(licenses, appointments, agents, planYearOverr
     ...[...carriersInData].filter(c => !KNOWN_CARRIERS.includes(c))]
 
   const nameByNpn = new Map(agents.map(a => [a.npn, `${a.last_name || ''}, ${a.first_name || ''}`]))
-  const rows = [...licensedByNpn.keys()].map(npn => {
+  // Agents who no longer sell Medicare are tracked for licensing only.
+  const rows = [...licensedByNpn.keys()].filter(isSellingAgent).map(npn => {
     const licensed = licensedByNpn.get(npn)
     const byCarrier = rtsByNpn.get(npn) || new Map()
     const cells = carriers.map(carrier => {

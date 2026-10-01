@@ -310,6 +310,17 @@ export, Coverage gap math, and the agency compliance check — even when agents
 hold personal licenses or carrier RTS files list them as ready. Update the set
 when the agency footprint changes.
 
+## Non-selling agents (`src/lib/nonSellingAgents.js`)
+
+Agents still on the Onyx roster (so their licenses, renewals and costs are
+tracked) who no longer sell Medicare. Keyed by NPN with the name in a comment
+map. `isSellingAgent(npn)` excludes them from everything appointment-driven:
+the Appointments page, the coverage model (Coverage page, Agents-list gap
+column, UHC state-add form), the Sunfire export, the Dashboard RTS count, and
+the agency compliance check. Their `carrier_appointments` rows are still
+imported and shown on the agent profile as history. Update the map when
+someone stops or resumes selling.
+
 ## Carrier footprints (`src/lib/carrierFootprints.js`)
 
 The Coverage page compares appointments only against states where each carrier
