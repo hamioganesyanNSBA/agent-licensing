@@ -6,8 +6,9 @@
 //   - Only ACTIVE agents (NPN present in the licenses table / Onyx roster).
 //   - Only RTS=Y appointments: States lists only ready states, and agents with
 //     no ready states for a carrier/year get no row at all.
-//   - Product Categories is always the full set: "MA; PDP; CSNP; DSNP" — being
-//     appointed in a state implies all products.
+//   - Product Categories is the full set "MA; PDP; CSNP; DSNP" — being
+//     appointed in a state implies all products — except for carriers in
+//     CARRIER_PRODUCTS (Devoted: no C-SNP contract, so CSNP is dropped).
 //   - Carrier names use Sunfire's display names (e.g. "Wellcare Health Plans").
 //   - NPN / numeric writing numbers are written as numbers, like the sample.
 import * as XLSX from 'xlsx'
@@ -21,6 +22,11 @@ const COLUMNS = [
 ]
 
 const ALL_PRODUCTS = 'MA; PDP; CSNP; DSNP'
+// Per-carrier overrides, keyed by our internal carrier value. The agency can't
+// sell Devoted's C-SNP products, so Devoted rows never list CSNP.
+const CARRIER_PRODUCTS = {
+  'Devoted': 'MA; PDP; DSNP',
+}
 
 // Our internal carrier values -> Sunfire display names (from the sample file).
 // Wellcare data is emitted TWICE — Sunfire lists it under both the Centene
@@ -107,7 +113,7 @@ export function buildSunfireRows(appointments, agents, licenses, { fmo = null } 
       'Plan Year':   g.plan_year,
       'Agent Writing Number': asNumberIfNumeric(writing),
       'States':              [...g.states].sort().join('; '),
-      'Product Categories':  ALL_PRODUCTS,
+      'Product Categories':  CARRIER_PRODUCTS[g.carrier] || ALL_PRODUCTS,
       'RTS Status': 'Y',
       'FMO':        fmo,
     }))

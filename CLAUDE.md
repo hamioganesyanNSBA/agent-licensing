@@ -140,7 +140,9 @@ report (which only ever writes Y rows for the selected year) it writes N rows.
 products, carrier `UnitedHealthOne`, product_category `Ancillary`,
 Active→RTS Y / Pending→N); because it isn't a Medicare Advantage product, that
 carrier is excluded from the Sunfire export (`NON_SUNFIRE_CARRIERS` in
-`sunfireExport.js`) and from the Coverage gap math (`ANCILLARY_CARRIERS` in
+`sunfireExport.js`); Sunfire rows list every product category (`MA; PDP; CSNP;
+DSNP`) except where `CARRIER_PRODUCTS` there overrides it — Devoted has no
+C-SNP contract, so its rows say `MA; PDP; DSNP` and from the Coverage gap math (`ANCILLARY_CARRIERS` in
 `coverageModel.js`). `alignment` imports Alignment Health's RTS CSV
 (`<Firm>_Alignment_RTS_<timestamp>.csv`, one row per rep × STATE2, carrier
 `Alignment`, product `MA`); plan years come from the file, not the selector:
