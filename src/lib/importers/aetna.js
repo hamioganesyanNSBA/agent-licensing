@@ -6,18 +6,16 @@
 //  2. Current RTS report "<Firm>_Aetna_RTS_<timestamp>.csv" or ".xlsx" — same
 //     columns plus SALES_YEAR, First_Name/Last_Name. It carries BOTH the
 //     current and the upcoming plan year in one file, so plan years come from
-//     SALES_YEAR and the selector is ignored. The XLSX flavour has a single
-//     "Sheet1", header casing/punctuation that differs from the CSV
-//     ("npn", "sales_year", "First Name"), and literal "NULL" strings in
-//     blank cells — headers are matched after stripping case/punctuation and
-//     "NULL" is treated as blank so both flavours parse identically.
+//     SALES_YEAR and the selector is ignored. Headers are matched by
+//     headerKey() and "NULL" cells are blank (see parse.js), so the CSV and
+//     XLSX flavours parse identically.
 //
 // Readiness: RTS_EXP_REASON blank == ready (codes like TF01/TF02,TF03 =
 // training, UF01 = upline, AF02 = appointment). As a safety net a row is
 // never counted ready when a readiness flag (BACKG/LIC/APPT/UPLINE/PRINCIPAL)
 // is 'F' — the file has a few all-'F' placeholder rows with no PRODUCT, no
 // RTS_DATE and no reason code; those are skipped (no product to key on).
-import { readWorkbook, sheetToRows, readCsv, clean } from '../parse.js'
+import { readTable, rowsToKeyedObjects, headerKey, cleanNull as val } from '../parse.js'
 import { toStateCode } from '../states.js'
 
 export const meta = {
@@ -35,9 +33,6 @@ const PRODUCT_MAP = {
   DSNP:  'DSNP',
 }
 
-// Header keys after normalization (upper-case, alphanumerics only), so
-// "SELL_STATE", "Sell State" and "sell_state" all resolve to the same column.
-const norm = h => String(h ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
 const COL = {
   npn:     'NPN',
   product: 'PRODUCT',
@@ -52,14 +47,17 @@ const COL = {
 const FLAG_COLS = ['BACKGFLAG', 'LICFLAG', 'APPTFLAG', 'UPLINEFLAG', 'PRINCIPALFLAG']
 const REQUIRED = [COL.npn, COL.product, COL.state, COL.reason]
 
-// clean() that also treats the XLSX export's literal "NULL" as empty.
-const val = v => {
-  const s = clean(v)
-  return s && s.toUpperCase() === 'NULL' ? null : s
-}
-
 export async function parseFile(file, opts = {}) {
-  const rows = await readRows(file)
+  // Legacy workbook has the "DETAIL" sheet; the current RTS export is "Sheet1".
+  const raw = await readTable(file, { sheet: 'DETAIL', label: 'Aetna' })
+  if (!raw.length) return { appointments: [] }
+  const headers = raw[0].map(headerKey)
+  for (const req of REQUIRED) {
+    if (!headers.includes(req)) {
+      throw new Error(`Aetna file is missing the ${req} column — nothing was imported.`)
+    }
+  }
+  const rows = rowsToKeyedObjects(raw)
 
   const out = new Map()   // npn|year|state|product -> row ('Y' wins on a repeat)
   for (const r of rows) {
@@ -102,33 +100,4 @@ export async function parseFile(file, opts = {}) {
     })
   }
   return { appointments: [...out.values()] }
-}
-
-// Returns row objects keyed by normalized header. CSV: the one table. XLSX:
-// the legacy "DETAIL" sheet when present, otherwise the first sheet (the
-// current RTS export is a single "Sheet1").
-async function readRows(file) {
-  const isCsv = /\.csv$/i.test(file.name || '') || /^text\/csv/i.test(file.type || '')
-  let raw
-  if (isCsv) {
-    raw = await readCsv(file)
-  } else {
-    const wb = await readWorkbook(file)
-    const ws = wb.Sheets['DETAIL'] || wb.Sheets[wb.SheetNames[0]]
-    if (!ws) throw new Error('Aetna workbook has no sheets — nothing was imported.')
-    raw = sheetToRows(ws)
-  }
-  if (!raw.length) return []
-
-  const headers = raw[0].map(norm)
-  for (const req of REQUIRED) {
-    if (!headers.includes(req)) {
-      throw new Error(`Aetna file is missing the ${req} column — nothing was imported.`)
-    }
-  }
-  return raw.slice(1).map(r => {
-    const o = {}
-    headers.forEach((h, i) => { if (h) o[h] = r[i] ?? null })
-    return o
-  })
 }

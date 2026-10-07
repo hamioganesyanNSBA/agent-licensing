@@ -96,3 +96,45 @@ export function splitNameFirstLast(name) {
   if (parts.length === 1) return { first: parts[0], last: null }
   return { first: parts[0], last: parts.slice(1).join(' ') }
 }
+
+// ---- Carrier RTS exports: CSV or XLSX, header casing varies, "NULL" cells ----
+//
+// The carriers' "<Firm>_<Carrier>_RTS_<timestamp>" reports come as CSV (upper
+// snake-case headers) or XLSX (single "Sheet1", title-case headers, literal
+// "NULL" strings in blank cells). These helpers let one importer read both.
+
+// Header key: upper-case alphanumerics only, so "SELL_STATE", "Sell State"
+// and "sell_state" all collide on purpose.
+export const headerKey = h => String(h ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+
+// clean() that also treats a literal "NULL" as empty.
+export function cleanNull(v) {
+  const s = clean(v)
+  return s && s.toUpperCase() === 'NULL' ? null : s
+}
+
+// Raw rows (array of arrays) from a CSV, or from a workbook's named sheet
+// when present, else its first sheet. `label` is only used in error text.
+export async function readTable(file, { sheet, label = 'This' } = {}) {
+  const isCsv = /\.csv$/i.test(file.name || '') || /^text\/csv/i.test(file.type || '')
+  if (isCsv) return readCsv(file)
+  const wb = await readWorkbook(file)
+  const ws = (sheet && wb.Sheets[sheet]) || wb.Sheets[wb.SheetNames[0]]
+  if (!ws) throw new Error(`${label} workbook has no sheets — nothing was imported.`)
+  return sheetToRows(ws)
+}
+
+// Row objects keyed by headerKey(header). When two headers collide (the XLSX
+// exports carry both "npn" and "NPN"), the first non-empty value wins.
+export function rowsToKeyedObjects(rows, headerIndex = 0) {
+  const keys = rows[headerIndex].map(headerKey)
+  return rows.slice(headerIndex + 1).map(r => {
+    const o = {}
+    keys.forEach((k, i) => {
+      if (!k) return
+      const v = r[i] ?? null
+      if (o[k] == null || o[k] === '') o[k] = v
+    })
+    return o
+  })
+}

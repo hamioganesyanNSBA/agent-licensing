@@ -1,4 +1,4 @@
-// Alignment Health RTS report (Firm_Alignment_RTS_<timestamp>.csv).
+// Alignment Health RTS report (Firm_Alignment_RTS_<timestamp>.csv or .xlsx).
 // One row per rep × state (STATE2). Two status columns per row:
 //   STATUS_CURRENT_YR — the plan year currently being sold
 //   STATUS_AEP        — the upcoming AEP plan year (AEP_TRAIN_YR)
@@ -11,49 +11,51 @@
 // The AEP cert counts for the current year too: an agent certified for the
 // upcoming year can sell now. (In NSBA's first year, 2026, Alignment never
 // ran a 2026 cert, so the 2027 cert is what makes agents ready for 2026.)
-import { readCsv, rowsToObjects, clean } from '../parse.js'
+// Headers are matched by headerKey() and "NULL" cells are blank (parse.js),
+// so the CSV (STATUS_AEP) and XLSX (Status_AEP) flavours parse identically.
+import { readTable, rowsToKeyedObjects, headerKey, cleanNull as clean } from '../parse.js'
 import { toStateCode } from '../states.js'
 
 export const meta = {
   key: 'alignment',
   label: 'Alignment RTS Report',
-  accept: '.csv',
+  accept: '.csv,.xlsx,.xls',
   target: 'carrier_appointments',
 }
 
-const REQUIRED = ['NPN_NUMBER', 'STATE2', 'STATUS_CURRENT_YR', 'STATUS_AEP', 'AEP_TRAIN_YR']
+const REQUIRED = ['NPNNUMBER', 'STATE2', 'STATUSCURRENTYR', 'STATUSAEP', 'AEPTRAINYR']
 
 export async function parseFile(file, opts = {}) {
-  const raw = await readCsv(file)
+  const raw = await readTable(file, { label: 'Alignment' })
   if (!raw.length) return { appointments: [] }
-  const headers = raw[0].map(h => String(h ?? '').trim())
+  const headers = raw[0].map(headerKey)
   for (const req of REQUIRED) {
     if (!headers.includes(req)) {
       throw new Error(`Alignment RTS file is missing the ${req} column — nothing was imported.`)
     }
   }
-  const rows = rowsToObjects(raw)
+  const rows = rowsToKeyedObjects(raw)
   const isActive = v => (clean(v) || '').toUpperCase() === 'A'
 
   const out = new Map()   // npn|year|state -> row ('Y' wins if a rep repeats)
   for (const r of rows) {
-    const npn = clean(r['NPN_NUMBER'])
+    const npn = clean(r['NPNNUMBER'])
     if (!npn || !/^\d+$/.test(npn)) continue
-    const state = toStateCode(r['STATE2'])
+    const state = toStateCode(clean(r['STATE2']))
     if (!state) continue
 
-    const aepYear = parseInt(clean(r['AEP_TRAIN_YR']), 10)
+    const aepYear = parseInt(clean(r['AEPTRAINYR']), 10)
       || (opts.planYear ? opts.planYear + 1 : new Date().getFullYear() + 1)
-    const currentYear = parseInt(clean(r['CURRENT_YR_TRAIN_YR']), 10) || aepYear - 1
+    const currentYear = parseInt(clean(r['CURRENTYRTRAINYR']), 10) || aepYear - 1
 
-    const aepReady = isActive(r['STATUS_AEP'])
-    const currentReady = isActive(r['STATUS_CURRENT_YR']) || aepReady
+    const aepReady = isActive(r['STATUSAEP'])
+    const currentReady = isActive(r['STATUSCURRENTYR']) || aepReady
 
     const base = {
       agent_npn: npn,
-      first_name: clean(r['REP_FIRST_NAME']),
-      last_name:  clean(r['REP_LAST_NAME']),
-      email:      clean(r['REP_EMAIL'])?.toLowerCase() || null,
+      first_name: clean(r['REPFIRSTNAME']),
+      last_name:  clean(r['REPLASTNAME']),
+      email:      clean(r['REPEMAIL'])?.toLowerCase() || null,
       carrier:    'Alignment',
       writing_number: npn,   // Sunfire uses the NPN as Alignment's writing number
       state,

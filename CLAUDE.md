@@ -88,7 +88,16 @@ and agent profile.
 ## Importers (`src/lib/importers/`)
 
 Registered in `index.js` (`IMPORTERS` map + `IMPORTER_LIST`) — these are the
-manual file uploads on the Imports page, all targeting `carrier_appointments`:
+manual file uploads on the Imports page, all targeting `carrier_appointments`.
+**Carrier RTS exports come as CSV or XLSX:** the `<Firm>_<Carrier>_RTS_<ts>`
+reports (Aetna, Devoted, Humana, Alignment, Elevance) arrive either as a CSV
+with upper-snake-case headers or, since Oct 2026, as an `.xlsx` with a single
+`Sheet1`, title-case headers (`npn`, `sales_year`, `First Name`), literal
+`NULL` strings in blank cells, and sometimes a materially different column
+set. `readTable` / `headerKey` / `rowsToKeyedObjects` / `cleanNull` in
+`src/lib/parse.js` read either container and match headers after stripping
+case/punctuation; every RTS importer below uses them and accepts both.
+Importers:
 `aetna`, `uhc`, `devoted`, `wellcare`, plus the "ProStat" carriers
 `healthspring` (Cigna), `scan`, `zing`, `molina` which share `_prostat.js` (MA
 rows only; RTS=Y when State Status is Active/Certified). The `healthspring`
@@ -128,7 +137,7 @@ current upline INNOVATIVE FINANCIAL PARTNERS LLC (`H_Parent_Name`) import —
 other uplines are skipped, and active roster agents found under one are
 returned in `wrongUpline` and shown on the Imports page for outreach. The same
 importer also accepts (header-sniffed) the newer
-`<Firm>_Elevance_RTS_<timestamp>.csv`, which has NPNs (no name matching): one
+`<Firm>_Elevance_RTS_<timestamp>.csv` / `.xlsx`, which has NPNs (no name matching): one
 row per agent × `APPOINTMENTSTATE` × legal entity, all brands rolled up to
 carrier `Anthem`; Med-Supp-only entity rows (HMO/PPO/PDP/SNP all `N/A`) are
 skipped, a state is RTS=Y when any MA entity row's `<year>RTS` is Yes
@@ -136,6 +145,9 @@ skipped, a state is RTS=Y when any MA entity row's `<year>RTS` is Yes
 column (selector ignored), writing number = `ENCRYPTEDTIN` (same value as the
 legacy `C_Writing_Etin`), same `PARENTNAME` upline rule. Unlike the legacy
 report (which only ever writes Y rows for the selected year) it writes N rows.
+The xlsx flavour seen so far carries only the current year's columns
+(`HMO2026` … `2026RTS`, no 2027 set), so it writes the current year only and
+leaves AEP-year rows as last imported.
 `uhone` imports UnitedHealthOne's "ActiveSubProducers" CSV (ancillary
 products, carrier `UnitedHealthOne`, product_category `Ancillary`,
 Active→RTS Y / Pending→N); because it isn't a Medicare Advantage product, that
@@ -143,19 +155,25 @@ carrier is excluded from the Sunfire export (`NON_SUNFIRE_CARRIERS` in
 `sunfireExport.js`); Sunfire rows list every product category (`MA; PDP; CSNP;
 DSNP`) except where `CARRIER_PRODUCTS` there overrides it — Devoted has no
 C-SNP contract, so its rows say `MA; PDP; DSNP` and from the Coverage gap math (`ANCILLARY_CARRIERS` in
-`coverageModel.js`). `alignment` imports Alignment Health's RTS CSV
-(`<Firm>_Alignment_RTS_<timestamp>.csv`, one row per rep × STATE2, carrier
+`coverageModel.js`). `alignment` imports Alignment Health's RTS report
+(`<Firm>_Alignment_RTS_<timestamp>.csv` / `.xlsx`, one row per rep × STATE2, carrier
 `Alignment`, product `MA`); plan years come from the file, not the selector:
 the AEP year (`AEP_TRAIN_YR`; RTS=Y when `STATUS_AEP` is A) and the year
 before it (RTS=Y when `STATUS_CURRENT_YR` is A **or** `STATUS_AEP` is A — an
 AEP cert also makes the agent ready now; NSBA's first year, 2026, had no
 Alignment cert, so the 2027 cert is what qualifies agents for 2026).
-`humana` imports Humana's RTS CSV (`<Firm>_Humana_RTS_<timestamp>.csv`, three
-rows per agent × `LIC_ST_CD` — one per contract: Medicare / Medsup /
-Individual). Only `CONTR_DESC_CODE` = Medicare rows import (carrier `Humana`,
-product `MA`): `RTS_<year>` is per contract, and the Medsup/Individual rows
-often say Yes where the Medicare row says No. One row per `RTS_<year>` column
-in the file (selector ignored); `writing_number` is the Humana SAN
+`humana` imports Humana's RTS report (`<Firm>_Humana_RTS_<timestamp>.csv` /
+`.xlsx`, three rows per agent × `LIC_ST_CD` — one per contract: Medicare /
+Medsup / Individual, plus a few `Achieve` rows in the xlsx). Only
+`CONTR_DESC_CODE` (xlsx: `Contract_Desc_Code`) = Medicare rows import
+(carrier `Humana`, product `MA`): RTS is per contract, and the
+Medsup/Individual rows often say Yes where the Medicare row says No. Plan
+years come from the file (selector ignored): the CSV has one `RTS_<year>`
+column per year; the xlsx instead has `Current_RTS` + `Current_RTS_Year` (the
+AEP year) and `Previous_RTS` (the year before) — verified to line up with
+`RTS_2027` / `RTS_2026`. Some xlsx `Current_RTS_Year` cells are
+date-formatted and read back as "7/19/05", so non-4-digit values fall back to
+the first valid year in the file. `writing_number` is the Humana SAN
 (`AGENT_SAN`), which the Sunfire export sends as the writing number (Humana
 is in `OWN_WRITING_NUMBER` alongside UHC and Anthem).
 `uhc` imports the UHC Readiness Report (`686773_EA_Ready_<date>.xlsx`):
@@ -175,18 +193,16 @@ ProStat file only sets the upcoming AEP plan year (filename year + 1, e.g.
 the license file must be uploaded first) and writes AEP-year rows with RTS=Y
 where that row is Y **and** AEP Status = Ready. It never writes the current
 year.
-`devoted` imports Devoted's RTS report (legacy portal export or the current
-`<Firm>_Devoted_RTS_<timestamp>.csv`, whose headers are upper snake case —
-headers are matched after stripping case/punctuation so both work): one row
+`devoted` imports Devoted's RTS report (legacy portal export, the
+`<Firm>_Devoted_RTS_<timestamp>.csv` whose headers are upper snake case, or
+the `.xlsx` flavour whose headers are the portal's title-case names again —
+all three normalize to the same keys): one row
 per agent × plan year × state, both plan years in the file (selector
 ignored), RTS=Y when Is Approved = Yes.
 `aetna` accepts both the legacy XLSX Broker Readiness Report (sheet `DETAIL`,
 plan year from the selector) and the current
-`<Firm>_Aetna_RTS_<timestamp>.csv` **or** `.xlsx` (single `Sheet1`), which
-carries BOTH the current and next plan year via `SALES_YEAR` (selector
-ignored). Headers are matched after stripping case/punctuation (the xlsx
-flavour uses `npn`, `sales_year`, `First Name`) and literal `NULL` cells are
-treated as blank. RTS=Y when `RTS_EXP_REASON`
+`<Firm>_Aetna_RTS_<timestamp>.csv` / `.xlsx`, which carries BOTH the current
+and next plan year via `SALES_YEAR` (selector ignored). RTS=Y when `RTS_EXP_REASON`
 is blank and no readiness flag is `F`; rows with a blank `PRODUCT` (all-`F`
 placeholders) are skipped. Licenses are
 **not** imported by file anymore — see the Onyx sync above.

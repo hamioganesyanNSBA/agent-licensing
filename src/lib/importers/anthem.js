@@ -1,9 +1,8 @@
-// Anthem / Elevance RTS report (CSV). Two formats are accepted, sniffed by
-// header:
+// Anthem / Elevance RTS report. Two formats are accepted, sniffed by header:
 //
-//  1. Current "<Firm>_Elevance_RTS_<timestamp>.csv" — see parseElevance()
-//     below. Has NPNs and per-year RTS columns, so there's no name matching
-//     and the Imports-page plan-year selector is ignored.
+//  1. Current "<Firm>_Elevance_RTS_<timestamp>.csv" or ".xlsx" — see
+//     parseElevance() below. Has NPNs and per-year RTS columns, so there's no
+//     name matching and the Imports-page plan-year selector is ignored.
 //  2. Legacy "Agent_Relationship_Report" hierarchy export — still used now and
 //     then. Described here:
 //
@@ -25,14 +24,14 @@
 // Skipped rows that DO resolve to an active roster agent are returned in
 // `wrongUpline` (npn/name/uplines/states) so we can reach out and get their
 // Anthem appointment moved under the current upline.
-import { readCsv, rowsToObjects, clean } from '../parse.js'
+import { readTable, rowsToKeyedObjects, headerKey, cleanNull as clean } from '../parse.js'
 import { toStateCode } from '../states.js'
 import { fetchAll } from '../fetchAll.js'
 
 export const meta = {
   key: 'anthem',
   label: 'Anthem (Elevance) RTS Report',
-  accept: '.csv',
+  accept: '.csv,.xlsx,.xls',
   target: 'carrier_appointments',
 }
 
@@ -72,9 +71,10 @@ function resolveNpn(name, { byKey, byLast }) {
 }
 
 export async function parseFile(file, opts = {}) {
-  const rows = await readCsv(file)
+  const rows = await readTable(file, { label: 'Anthem' })
   const hdr = (rows[0] || []).map(h => String(h ?? '').trim())
-  if (hdr.includes('APPOINTMENTSTATE') && hdr.includes('PARENTNAME')) return parseElevance(rows, hdr)
+  const keys = hdr.map(headerKey)
+  if (keys.includes('APPOINTMENTSTATE') && keys.includes('PARENTNAME')) return parseElevance(rows, keys)
   // Content fingerprint: the Anthem hierarchy export has lettered columns.
   if (hdr[0] !== 'A_State' || hdr[2] !== 'C_Writing_Etin') {
     throw new Error('This doesn\'t look like an Anthem RTS report — expected the Elevance RTS columns (APPOINTMENTSTATE / PARENTNAME) or the hierarchy export\'s A_State / C_Writing_Etin. Nothing was imported.')
@@ -146,24 +146,27 @@ export async function parseFile(file, opts = {}) {
 //   - <year>RTS is the MA readiness (<year>RTSMSONLY is the separate Med Supp
 //     flag and is ignored). A state is RTS=Y for a year when ANY of its MA
 //     entity rows says Yes.
-// Every <year>RTS column emits a row. ENCRYPTEDTIN is the same value as the
-// legacy report's C_Writing_Etin (WRITINGNUMBER is blank), so it's the writing
-// number. Same upline rule as the legacy report: rows not under
-// CURRENT_UPLINE are skipped and roster agents among them land in wrongUpline.
+// Every <year>RTS column emits a row (the CSV carries 2026 and 2027; the XLSX
+// flavour we've seen carries only 2026, so it leaves the AEP-year rows alone).
+// ENCRYPTEDTIN is the same value as the legacy report's C_Writing_Etin
+// (WRITINGNUMBER is blank), so it's the writing number. Same upline rule as
+// the legacy report: rows not under CURRENT_UPLINE are skipped and roster
+// agents among them land in wrongUpline. Headers are matched by headerKey()
+// and "NULL" cells are blank (parse.js), so CSV and XLSX parse identically.
 const MA_FLAGS = ['HMO', 'PPO', 'PDP', 'SNP']
 
-async function parseElevance(raw, hdr) {
-  const years = hdr.map(h => /^(\d{4})RTS$/.exec(h)).filter(Boolean).map(m => parseInt(m[1], 10))
-  if (!hdr.includes('NPN') || !years.length) {
+async function parseElevance(raw, keys) {
+  const years = keys.map(h => /^(\d{4})RTS$/.exec(h)).filter(Boolean).map(m => parseInt(m[1], 10))
+  if (!keys.includes('NPN') || !years.length) {
     throw new Error('Elevance RTS file is missing the NPN or <year>RTS columns — nothing was imported.')
   }
-  const rows = rowsToObjects(raw)
+  const rows = rowsToKeyedObjects(raw)
   const isYes = v => (clean(v) || '').toUpperCase() === 'YES'
 
   const out = new Map()       // npn|year|state -> row ('Y' wins across entities)
   const offUpline = new Map() // npn -> flag, before the roster check
   for (const r of rows) {
-    const npn = clean(r['NPN']) || clean(r['OneHQ_NPN'])
+    const npn = clean(r['NPN']) || clean(r['ONEHQNPN'])
     if (!npn || !/^\d+$/.test(npn)) continue
     const state = toStateCode(r['APPOINTMENTSTATE'])
     if (!state) continue
@@ -188,8 +191,8 @@ async function parseElevance(raw, hdr) {
       if (out.get(k)?.rts_status === 'Y') continue
       out.set(k, {
         agent_npn: npn,
-        first_name: clean(r['OneHQ_First_Name']) || clean(r['FIRSTNAME']),
-        last_name:  clean(r['OneHQ_Last_Name'])  || clean(r['LASTNAME']),
+        first_name: clean(r['ONEHQFIRSTNAME']) || clean(r['FIRSTNAME']),
+        last_name:  clean(r['ONEHQLASTNAME'])  || clean(r['LASTNAME']),
         email:      clean(r['EMAIL'])?.toLowerCase() || null,
         carrier: 'Anthem',
         plan_year: py,
