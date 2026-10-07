@@ -182,8 +182,11 @@ per agent × plan year × state, both plan years in the file (selector
 ignored), RTS=Y when Is Approved = Yes.
 `aetna` accepts both the legacy XLSX Broker Readiness Report (sheet `DETAIL`,
 plan year from the selector) and the current
-`<Firm>_Aetna_RTS_<timestamp>.csv`, which carries BOTH the current and next
-plan year via `SALES_YEAR` (selector ignored). RTS=Y when `RTS_EXP_REASON`
+`<Firm>_Aetna_RTS_<timestamp>.csv` **or** `.xlsx` (single `Sheet1`), which
+carries BOTH the current and next plan year via `SALES_YEAR` (selector
+ignored). Headers are matched after stripping case/punctuation (the xlsx
+flavour uses `npn`, `sales_year`, `First Name`) and literal `NULL` cells are
+treated as blank. RTS=Y when `RTS_EXP_REASON`
 is blank and no readiness flag is `F`; rows with a blank `PRODUCT` (all-`F`
 placeholders) are skipped. Licenses are
 **not** imported by file anymore — see the Onyx sync above.
