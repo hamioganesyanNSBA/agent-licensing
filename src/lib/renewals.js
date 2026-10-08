@@ -2,7 +2,9 @@
 //
 // Lifecycle of a license_renewals row (see supabase/renewals.sql):
 //   decision 'renew': selected -> submitted (Sircon confirmation entered)
-//                     -> completed (auto: Onyx sync shows a later expiration)
+//                     -> completed (auto: Onyx sync shows a later expiration;
+//                        also closes 'selected' rows, since a license renewed
+//                        outside the app never passes through 'submitted')
 //   decision 'skip':  skipped (terminal, with a required reason)
 // A 'submitted' row with no sync update after FOLLOW_UP_BUSINESS_DAYS is
 // flagged for follow-up (derived at render time, not stored).
@@ -126,14 +128,19 @@ export function expiringAgencyLicenses(rows, windowDays = EXPIRING_WINDOW_DAYS) 
       || a.entity.localeCompare(b.entity) || a.state.localeCompare(b.state))
 }
 
+// Open 'renew' statuses the auto-complete may close. 'selected' is included
+// because a license can be renewed without the app ever seeing a confirmation
+// number — the new expiration on file is the ground truth either way.
+const AUTO_COMPLETE_STATUSES = ['selected', 'submitted']
+
 /**
- * Close out submitted agency renewals whose license now shows a later
- * expiration (updated via "Mark renewed" or edited on the Agency page).
+ * Close out open agency renewals whose license now shows a later expiration
+ * (updated via "Mark renewed" or edited on the Agency page).
  * Defensive: returns 0 when either table doesn't exist yet.
  */
 export async function autoCompleteAgencyRenewals() {
   const { data: rows, error } = await supabase.from('agency_license_renewals')
-    .select('*').eq('status', 'submitted')
+    .select('*').in('status', AUTO_COMPLETE_STATUSES)
   if (error || !rows?.length) return 0
   let licenses
   try { licenses = await fetchAll('agency_licenses', 'id,entity,state,license_number,expiration_date') }
@@ -157,12 +164,12 @@ export async function autoCompleteAgencyRenewals() {
 }
 
 /**
- * Close out submitted renewals once the Onyx sync shows a later expiration for
- * the license. Runs when renewal pages load. Defensive: returns 0 instead of
- * throwing when the license_renewals table doesn't exist yet.
+ * Close out open renewals (selected or submitted) once the Onyx sync shows a
+ * later expiration for the license. Runs when renewal pages load. Defensive:
+ * returns 0 instead of throwing when the license_renewals table doesn't exist yet.
  */
 export async function autoCompleteRenewals(npn = null) {
-  let q = supabase.from('license_renewals').select('*').eq('status', 'submitted')
+  let q = supabase.from('license_renewals').select('*').in('status', AUTO_COMPLETE_STATUSES)
   if (npn) q = q.eq('npn', npn)
   const { data: rows, error } = await q
   if (error || !rows?.length) return 0

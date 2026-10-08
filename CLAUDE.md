@@ -250,7 +250,10 @@ requires a reason — "Not in NSBA marketing" or "Other" with required notes),
 applies in Sircon (link out), and records the transaction confirmation number,
 which moves those licenses to "Completed — pending sync". A row auto-completes
 when the Onyx license sync shows a later expiration for that license
-(`autoCompleteRenewals()` in `src/lib/renewals.js`, run on renewal-page load);
+(`autoCompleteRenewals()` in `src/lib/renewals.js`, run on renewal-page load) —
+this covers "selected" rows as well as "submitted" ones, because licenses are
+often renewed without the confirmation step and would otherwise sit forever
+showing the old (now past) expiration as "expired";
 submitted rows with no sync update after 7 business days are flagged for
 follow-up. Table `license_renewals` from `supabase/renewals.sql` (run manually;
 pages show a setup notice if missing). Renewals track whole licenses
