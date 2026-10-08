@@ -74,7 +74,7 @@ export async function parseFile(file, opts = {}) {
   const rows = await readTable(file, { label: 'Anthem' })
   const hdr = (rows[0] || []).map(h => String(h ?? '').trim())
   const keys = hdr.map(headerKey)
-  if (keys.includes('APPOINTMENTSTATE') && keys.includes('PARENTNAME')) return parseElevance(rows, keys)
+  if (keys.includes('APPOINTMENTSTATE') && keys.includes('PARENTNAME')) return parseElevance(rows, keys, file.name)
   // Content fingerprint: the Anthem hierarchy export has lettered columns.
   if (hdr[0] !== 'A_State' || hdr[2] !== 'C_Writing_Etin') {
     throw new Error('This doesn\'t look like an Anthem RTS report — expected the Elevance RTS columns (APPOINTMENTSTATE / PARENTNAME) or the hierarchy export\'s A_State / C_Writing_Etin. Nothing was imported.')
@@ -139,29 +139,107 @@ export async function parseFile(file, opts = {}) {
 
 // Elevance RTS report. One row per agent × APPOINTMENTSTATE × legal entity
 // (LOB / LEGALENTITY — Anthem BCBS, Wellpoint, Healthy Blue, Simply, … all
-// roll up to carrier 'Anthem', like the legacy report). Per plan year the file
-// has HMO/PPO/PDP/SNP<year> cert flags, <year>RTS and <year>RTSMSONLY:
-//   - Med-Supp-only entities have 'N/A' in all four product flags — skipped,
-//     they say nothing about Medicare Advantage.
-//   - <year>RTS is the MA readiness (<year>RTSMSONLY is the separate Med Supp
-//     flag and is ignored). A state is RTS=Y for a year when ANY of its MA
-//     entity rows says Yes.
-// Every <year>RTS column emits a row (the CSV carries 2026 and 2027; the XLSX
-// flavour we've seen carries only 2026, so it leaves the AEP-year rows alone).
+// roll up to carrier 'Anthem', like the legacy report). Two column sets:
+//
+//  a) With per-year columns (the CSV, and the xlsx up to 2026-10-06): per
+//     plan year HMO/PPO/PDP/SNP<year> cert flags, <year>RTS and
+//     <year>RTSMSONLY.
+//      - Med-Supp-only entities have 'N/A' in all four product flags —
+//        skipped, they say nothing about Medicare Advantage.
+//      - <year>RTS is the MA readiness (<year>RTSMSONLY is the separate Med
+//        Supp flag and is ignored). A state is RTS=Y for a year when ANY of
+//        its MA entity rows says Yes.
+//     Every <year>RTS column emits a row (the CSV carries 2026 and 2027; the
+//     early XLSX carried only 2026, so it leaves the AEP-year rows alone).
+//  b) Without them (the xlsx since 2026-10-07 dropped every <year> column):
+//     readiness is derived from what's left — LICENSESTOP, APPOINTMENTSTART /
+//     APPOINTMENTSTOP, SNRCONTRACTSTOP, CERTIFIED and MISSINGMODULES — using
+//     the rule that reproduces the 2027RTS column of the 2026-10-05 CSV
+//     exactly:
+//      - rows whose MISSINGMODULES says "N/A - MS only" are the Med-Supp-only
+//        entities (same rows that had all-N/A product flags) — skipped;
+//      - a row is *active* when the license, appointment and SNR contract
+//        windows all contain the report date (filename timestamp, else
+//        today; "12/31/99" / 9999-12-31 is the carrier's "no stop" sentinel);
+//      - the report is a snapshot of AEP-year readiness: CERTIFIED is the
+//        AEP-year (report date's year + 1) certification — in the CSV,
+//        CERTIFIED=N (MISSINGMODULES "FWA") rows were 2027RTS=No — so the
+//        AEP year is RTS=Y when active AND CERTIFIED = Y;
+//      - an agent ready for the AEP year is automatically ready for the
+//        current year, so the current year (report date's year) gets the
+//        same value. (The CSV's own 2026RTS column stayed Yes for the few
+//        uncertified-for-2027 agents; we deliberately don't do that.)
+//     Verified Oct 2026.
+//
 // ENCRYPTEDTIN is the same value as the legacy report's C_Writing_Etin
 // (WRITINGNUMBER is blank), so it's the writing number. Same upline rule as
 // the legacy report: rows not under CURRENT_UPLINE are skipped and roster
 // agents among them land in wrongUpline. Headers are matched by headerKey()
 // and "NULL" cells are blank (parse.js), so CSV and XLSX parse identically.
 const MA_FLAGS = ['HMO', 'PPO', 'PDP', 'SNP']
+const DERIVED_COLS = ['CERTIFIED', 'LICENSESTOP', 'APPOINTMENTSTART', 'APPOINTMENTSTOP']
 
-async function parseElevance(raw, keys) {
+// Elevance date cell -> 'yyyy-mm-dd', or null for blank / the 9999-12-31 "no
+// stop" sentinel. The xlsx cells come through readTable() as m/d/yy
+// ("2/28/29", "12/31/99"), the CSV as yyyy-mm-dd — toDate() would read the
+// two-digit "99" as 1999, so handle both shapes here.
+function elevanceDate(v) {
+  const s = clean(v)
+  if (!s) return null
+  let y, m, d
+  let mt = /^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/.exec(s)
+  if (mt) {
+    m = +mt[1]; d = +mt[2]; y = +mt[3]
+    if (mt[3].length === 2) y += 2000
+  } else if ((mt = /^(\d{4})-(\d{2})-(\d{2})/.exec(s))) {
+    y = +mt[1]; m = +mt[2]; d = +mt[3]
+  } else return null
+  if (y >= 2099) return null   // 12/31/99 == 9999-12-31 == open-ended
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+}
+
+// Report date: the <Firm>_Elevance_RTS_<yyyymmdd…> filename timestamp, else today.
+function reportDate(fileName) {
+  const m = /_RTS_(\d{4})(\d{2})(\d{2})/.exec(fileName || '')
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`
+  return new Date().toISOString().slice(0, 10)
+}
+
+async function parseElevance(raw, keys, fileName) {
   const years = keys.map(h => /^(\d{4})RTS$/.exec(h)).filter(Boolean).map(m => parseInt(m[1], 10))
-  if (!keys.includes('NPN') || !years.length) {
-    throw new Error('Elevance RTS file is missing the NPN or <year>RTS columns — nothing was imported.')
+  const derived = !years.length && DERIVED_COLS.every(k => keys.includes(k))
+  if (!keys.includes('NPN') || (!years.length && !derived)) {
+    throw new Error('Elevance RTS file is missing the NPN or <year>RTS columns (or, for the newer layout, CERTIFIED / LICENSESTOP / APPOINTMENTSTART / APPOINTMENTSTOP) — nothing was imported.')
+  }
+  const isYes = v => (clean(v) || '').toUpperCase() === 'YES'
+  const asOf = reportDate(fileName)
+  const currentYear = parseInt(asOf.slice(0, 4), 10)
+  // Per-year rules: ready(row) -> 'Y' | 'N' | null (null = not an MA row).
+  let yearRules
+  if (derived) {
+    const active = r => {
+      const start = elevanceDate(r['APPOINTMENTSTART'])
+      const stops = [r['LICENSESTOP'], r['APPOINTMENTSTOP'], r['SNRCONTRACTSTOP']].map(elevanceDate)
+      return (!start || start <= asOf) && stops.every(d => !d || d >= asOf)
+    }
+    const isMa = r => !/MS\s*ONLY/i.test(clean(r['MISSINGMODULES']) || '')
+    const certified = r => (clean(r['CERTIFIED']) || '').toUpperCase() === 'Y'
+    const ready = r => !isMa(r) ? null : active(r) && certified(r) ? 'Y' : 'N'
+    yearRules = [{ py: currentYear, ready }, { py: currentYear + 1, ready }]
+  } else {
+    yearRules = years.map(py => ({
+      py,
+      ready: r => {
+        const sellsMa = MA_FLAGS.some(f => {
+          const v = (clean(r[f + py]) || '').toUpperCase()
+          return v && v !== 'N/A'
+        })
+        if (!sellsMa) return null
+        return isYes(r[py + 'RTS']) ? 'Y' : 'N'
+      },
+    }))
   }
   const rows = rowsToKeyedObjects(raw)
-  const isYes = v => (clean(v) || '').toUpperCase() === 'YES'
 
   const out = new Map()       // npn|year|state -> row ('Y' wins across entities)
   const offUpline = new Map() // npn -> flag, before the roster check
@@ -181,12 +259,9 @@ async function parseElevance(raw, keys) {
       continue
     }
 
-    for (const py of years) {
-      const sellsMa = MA_FLAGS.some(f => {
-        const v = (clean(r[f + py]) || '').toUpperCase()
-        return v && v !== 'N/A'
-      })
-      if (!sellsMa) continue
+    for (const { py, ready } of yearRules) {
+      const rts = ready(r)
+      if (!rts) continue
       const k = `${npn}|${py}|${state}`
       if (out.get(k)?.rts_status === 'Y') continue
       out.set(k, {
@@ -199,7 +274,7 @@ async function parseElevance(raw, keys) {
         writing_number: clean(r['ENCRYPTEDTIN']),
         state,
         product_category: 'MA',
-        rts_status: isYes(r[py + 'RTS']) ? 'Y' : 'N',
+        rts_status: rts,
       })
     }
   }

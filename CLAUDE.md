@@ -145,9 +145,17 @@ skipped, a state is RTS=Y when any MA entity row's `<year>RTS` is Yes
 column (selector ignored), writing number = `ENCRYPTEDTIN` (same value as the
 legacy `C_Writing_Etin`), same `PARENTNAME` upline rule. Unlike the legacy
 report (which only ever writes Y rows for the selected year) it writes N rows.
-The xlsx flavour seen so far carries only the current year's columns
-(`HMO2026` … `2026RTS`, no 2027 set), so it writes the current year only and
-leaves AEP-year rows as last imported.
+The xlsx flavour first carried only the current year's columns
+(`HMO2026` … `2026RTS`, no 2027 set), writing the current year only; since
+2026-10-07 it carries **no** `<year>` columns at all, so the importer derives
+readiness from `LICENSESTOP` / `APPOINTMENTSTART` / `APPOINTMENTSTOP` /
+`SNRCONTRACTSTOP`, `CERTIFIED` and `MISSINGMODULES` (`"N/A - MS only"` marks
+the Med-Supp-only entity rows): a row is active when every window contains
+the report date (filename timestamp; `12/31/99` is the carrier's open-ended
+sentinel); `CERTIFIED` is the AEP-year (report date's year + 1) cert, so the
+AEP year is RTS=Y when active **and** `CERTIFIED` = Y, and the current year
+gets the same value (an agent ready for 2027 is automatically ready for 2026).
+That reproduces the 2026-10-05 CSV's `2027RTS` column exactly.
 `uhone` imports UnitedHealthOne's "ActiveSubProducers" CSV (ancillary
 products, carrier `UnitedHealthOne`, product_category `Ancillary`,
 Active→RTS Y / Pending→N); because it isn't a Medicare Advantage product, that
