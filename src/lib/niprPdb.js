@@ -150,5 +150,13 @@ export function parsePdbText(rawText) {
 }
 
 export async function parseNiprPdbPdf(file) {
-  return parsePdbText(await readPdfText(file))
+  const text = await readPdfText(file)
+  // A report "printed" to PDF (Microsoft Print to PDF, browser print dialog)
+  // carries no text layer — every glyph is a vector path — so there's nothing
+  // to parse. The NIPR download itself (my-nipr-order-<n>-detail.pdf) has text.
+  if (!text.trim()) {
+    throw new Error('This PDF has no readable text — it looks like it was printed to PDF rather than downloaded. '
+      + 'Download the PDB Detail report directly from NIPR (my-nipr-order-…-detail.pdf) and upload that. Nothing was imported.')
+  }
+  return parsePdbText(text)
 }
