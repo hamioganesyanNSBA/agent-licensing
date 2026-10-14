@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { fetchAll } from '../lib/fetchAll.js'
-import { buildSunfireRows, downloadSunfireXlsx } from '../lib/sunfireExport.js'
+import { buildSunfireRows, downloadSunfireXlsx, SUPPRESSED_CARRIERS } from '../lib/sunfireExport.js'
 
 export default function SunfireExport() {
   const [busy, setBusy] = useState(false)
@@ -42,6 +42,13 @@ export default function SunfireExport() {
           changes, so a state with no active license is dropped even if the carrier file lists
           it. Every appointed state carries all products (MA; PDP; CSNP; DSNP).
         </p>
+        {SUPPRESSED_CARRIERS.size > 0 && (
+          <p style={{ color: '#64748b', fontSize: 13 }}>
+            Not exported: <strong>{[...SUPPRESSED_CARRIERS].join(', ')}</strong> — the agency
+            isn't selling {SUPPRESSED_CARRIERS.size === 1 ? 'this carrier' : 'these carriers'}, so
+            their RTS rows stay in the app for record-keeping but are left off the upload file.
+          </p>
+        )}
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <button className="btn-secondary btn" disabled={busy} onClick={() => run({ download: false })}>Preview</button>
           <button className="btn"           disabled={busy} onClick={() => run({ download: true })}>Generate &amp; download</button>

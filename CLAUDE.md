@@ -160,7 +160,11 @@ That reproduces the 2026-10-05 CSV's `2027RTS` column exactly.
 products, carrier `UnitedHealthOne`, product_category `Ancillary`,
 Active→RTS Y / Pending→N); because it isn't a Medicare Advantage product, that
 carrier is excluded from the Sunfire export (`NON_SUNFIRE_CARRIERS` in
-`sunfireExport.js`); Sunfire rows list every product category (`MA; PDP; CSNP;
+`sunfireExport.js`). Separately, `SUPPRESSED_CARRIERS` there holds MA carriers
+the agency has decided not to sell (Devoted, since 2026-10-13 for AEP 2027):
+their RTS rows are still imported and shown everywhere in the app, but never
+reach the Sunfire file — remove the carrier from the set to resume exporting.
+Sunfire rows list every product category (`MA; PDP; CSNP;
 DSNP`) except where `CARRIER_PRODUCTS` there overrides it — Devoted has no
 C-SNP contract, so its rows say `MA; PDP; DSNP` and from the Coverage gap math (`ANCILLARY_CARRIERS` in
 `coverageModel.js`). `alignment` imports Alignment Health's RTS report

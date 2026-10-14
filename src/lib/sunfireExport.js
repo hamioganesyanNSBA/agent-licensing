@@ -4,6 +4,9 @@
 //     Plan Year, Agent Writing Number, States, Product Categories, RTS Status, FMO
 //   - One row per agent x carrier x plan year; States is a "; "-joined sorted list.
 //   - Only ACTIVE agents (NPN present in the licenses table / Onyx roster).
+//   - Carriers in SUPPRESSED_CARRIERS (Devoted, since AEP 2027) are left out
+//     entirely: their RTS data is still imported and shown in the app, but the
+//     agency has decided not to sell them, so they never reach Sunfire.
 //   - Only RTS=Y appointments: States lists only ready states, and agents with
 //     no ready states for a carrier/year get no row at all.
 //   - Product Categories is the full set "MA; PDP; CSNP; DSNP" — being
@@ -47,6 +50,13 @@ const asNumberIfNumeric = v => (v != null && /^\d+$/.test(String(v)) ? Number(v)
 // carrier_appointments but never uploaded to Sunfire.
 const NON_SUNFIRE_CARRIERS = new Set(['UnitedHealthOne'])
 
+// MA carriers the agency has decided NOT to sell through Sunfire. Their RTS
+// rows are still imported and visible on the Appointments / agent pages for
+// record-keeping, but they're dropped from the upload file so Sunfire never
+// routes their plans to our agents. Decided 2026-10-13 (Devoted, AEP 2027).
+// Remove a carrier from this set to start exporting it again.
+export const SUPPRESSED_CARRIERS = new Set(['Devoted'])
+
 // Writing-number rule: every carrier uses the agent's NPN, EXCEPT these,
 // which have their own carrier-issued writing numbers (Anthem's ETIN from the
 // Anthem RTS report; UHC's from the UHC readiness report; Humana's SAN from
@@ -73,6 +83,7 @@ export function buildSunfireRows(appointments, agents, licenses, { fmo = null } 
   const groups = new Map()
   for (const a of appointments) {
     if (NON_SUNFIRE_CARRIERS.has(a.carrier)) continue     // ancillary, not MA
+    if (SUPPRESSED_CARRIERS.has(a.carrier)) continue      // agency chose not to sell this carrier
     if (a.rts_status !== 'Y') continue                    // only ready states
     if (!activeNpns.has(a.agent_npn)) continue            // only active agents
     if (!isSellingAgent(a.agent_npn)) continue            // licensed, but no longer sells Medicare
